@@ -39,7 +39,7 @@
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx'])
         <x-inertia::head>
-            <title>{{ config('app.name', 'Gestimmo plus') }}</title>
+            <title>{{ config('app.name', 'Gestimmo Plus') }}</title>
         </x-inertia::head>
     </head>
     <body class="font-sans antialiased">

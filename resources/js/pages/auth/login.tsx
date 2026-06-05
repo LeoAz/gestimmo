@@ -1,4 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
+import { FormAlert } from '@/components/form-alert';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -16,7 +17,7 @@ type Props = {
 };
 
 export default function Login({ status, canResetPassword }: Props) {
-    const { name } = usePage().props;
+    const { name, errors: pageErrors } = usePage().props as any;
 
     return (
         <>
@@ -29,6 +30,8 @@ export default function Login({ status, canResetPassword }: Props) {
             >
                 {({ processing, errors }) => (
                     <>
+                        <FormAlert message={errors.error || pageErrors?.error || status} />
+
                         <div className="grid gap-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Adresse email</Label>

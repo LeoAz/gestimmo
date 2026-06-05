@@ -36,6 +36,8 @@ class PropertyController extends Controller
      */
     public function store(Request $request)
     {
+        $this->sanitizePropertyData($request);
+
         $validated = $request->validate([
             'property_category_id' => 'required|exists:property_categories,id',
             'title' => 'required|string|max:255',
@@ -128,6 +130,8 @@ class PropertyController extends Controller
      */
     public function update(Request $request, Property $property)
     {
+        $this->sanitizePropertyData($request);
+
         $validated = $request->validate([
             'property_category_id' => 'required|exists:property_categories,id',
             'title' => 'required|string|max:255',
@@ -190,5 +194,46 @@ class PropertyController extends Controller
 
         return redirect()->route('properties.index')
             ->with('success', 'Bien immobilier supprimé avec succès.');
+    }
+
+    /**
+     * Sanitize numeric and boolean property data.
+     */
+    private function sanitizePropertyData(Request $request): void
+    {
+        $numericFields = [
+            'price', 'floor_number', 'surface_area', 'rooms_count',
+            'bedrooms_count', 'bathrooms_count', 'living_rooms_count',
+        ];
+
+        foreach ($numericFields as $field) {
+            if ($request->has($field) && $request->input($field) === '') {
+                $request->merge([$field => null]);
+            }
+        }
+
+        $booleanFields = ['has_kitchen', 'has_solar_panels', 'has_generator'];
+
+        foreach ($booleanFields as $field) {
+            if ($request->has($field)) {
+                $value = $request->input($field);
+                $request->merge([$field => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)]);
+            }
+        }
+
+        if ($request->has('apartments') && is_array($request->input('apartments'))) {
+            $apartments = $request->input('apartments');
+            foreach ($apartments as $index => $apartment) {
+                foreach ($numericFields as $field) {
+                    if (isset($apartment[$field]) && $apartment[$field] === '') {
+                        $apartments[$index][$field] = null;
+                    }
+                }
+                if (isset($apartment['has_kitchen'])) {
+                    $apartments[$index]['has_kitchen'] = filter_var($apartment['has_kitchen'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                }
+            }
+            $request->merge(['apartments' => $apartments]);
+        }
     }
 }

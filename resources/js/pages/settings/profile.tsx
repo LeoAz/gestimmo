@@ -1,6 +1,8 @@
 import { Form, Head, usePage } from '@inertiajs/react';
+
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/delete-user';
+import { FormAlert } from '@/components/form-alert';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -14,7 +16,8 @@ type PageProps = {
 };
 
 export default function Profile() {
-    const { auth } = usePage<PageProps>().props;
+    const { auth, flash, status } = usePage<any>().props;
+    const pageErrors = usePage().props.errors;
 
     return (
         <>
@@ -38,6 +41,8 @@ export default function Profile() {
                 >
                     {({ processing, errors }) => (
                         <>
+                            <FormAlert message={errors.error || pageErrors?.error || flash?.error || flash?.success || status} />
+
                             <div className="grid gap-2">
                                 <Label htmlFor="name">Nom</Label>
 

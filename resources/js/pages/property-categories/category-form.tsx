@@ -1,7 +1,8 @@
-import { useForm } from "@inertiajs/react"
+import { useForm, usePage } from "@inertiajs/react"
 import * as React from "react"
 import { toast } from "sonner"
 
+import { FormAlert } from "@/components/form-alert"
 import InputError from "@/components/input-error"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,7 @@ interface CategoryFormProps {
 }
 
 export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProps) {
+  const { errors: pageErrors } = usePage().props as any
   const { data, setData, post, put, processing, errors, reset } = useForm({
     name: category?.name || "",
     description: category?.description || "",
@@ -62,6 +64,7 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+      <FormAlert message={errors.error || pageErrors?.error} />
       <div className="space-y-2">
         <Label htmlFor="name">Nom</Label>
         <Input

@@ -1,10 +1,11 @@
-import { Head, Link, useForm } from "@inertiajs/react"
+import { Head, Link, useForm, usePage } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { CalendarIcon, CheckCircle2, History, Printer } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
+import { FormAlert } from "@/components/form-alert"
 import Heading from "@/components/heading"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -58,7 +59,9 @@ interface Props {
 }
 
 export default function Show({ rental }: Props) {
-  const { data, setData, post, processing, reset } = useForm({
+  const { flash } = usePage<any>().props
+  const pageErrors = usePage().props.errors
+  const { data, setData, post, processing, errors, reset } = useForm({
     rental_id: rental.id,
     amount: rental.rent_amount,
     payment_date: new Date(),
@@ -175,6 +178,7 @@ export default function Show({ rental }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <FormAlert message={errors.error || pageErrors?.error || flash?.error || flash?.success} />
                 <form onSubmit={handleSubmitPayment} className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">

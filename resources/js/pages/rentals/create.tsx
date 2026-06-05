@@ -1,10 +1,11 @@
-import { Head, Link, useForm } from "@inertiajs/react"
+import { Head, Link, useForm, usePage } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { CalendarIcon } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
+import { FormAlert } from "@/components/form-alert"
 import Heading from "@/components/heading"
 import InputError from "@/components/input-error"
 import { Button } from "@/components/ui/button"
@@ -55,6 +56,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ]
 
 export default function Create({ villas, buildings, tenants }: Props) {
+  const { errors: pageErrors } = usePage().props as any
   const { data, setData, post, processing, errors } = useForm({
     tenant_id: "",
     tenant_first_name: "",
@@ -96,6 +98,7 @@ export default function Create({ villas, buildings, tenants }: Props) {
 
       <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
         <Heading title="Nouvelle location" description="Enregistrez une nouvelle location en sélectionnant un locataire et un bien." />
+        <FormAlert message={errors.error || pageErrors?.error} />
         <form onSubmit={handleSubmit} className="space-y-8">
           <Card>
             <CardHeader>

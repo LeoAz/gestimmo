@@ -31,7 +31,7 @@ export default function AuthCardLayout({
                     <div className="flex h-9 w-9 items-center justify-center">
                         <AppLogoIcon className="size-9 dark:text-white" />
                     </div>
-                    <span className="text-xl font-bold">{name}</span>
+                    <span className="text-xl font-bold">Gestimmo plus</span>
                 </Link>
 
                 <div className="flex flex-col gap-6">

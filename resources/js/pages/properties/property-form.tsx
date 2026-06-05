@@ -1,8 +1,9 @@
-import { useForm } from "@inertiajs/react"
+import { useForm, usePage } from "@inertiajs/react"
 import { Plus, Trash } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
+import { FormAlert } from "@/components/form-alert"
 import InputError from "@/components/input-error"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -49,6 +50,7 @@ interface PropertyFormProps {
 }
 
 export function PropertyForm({ property, categories, onSuccess, onCancel }: PropertyFormProps) {
+  const { errors: pageErrors } = usePage().props as any
   const { data, setData, post, put, processing, errors, reset } = useForm({
     property_category_id: property?.property_category_id?.toString() || "",
     title: property?.title || "",
@@ -124,6 +126,7 @@ export function PropertyForm({ property, categories, onSuccess, onCancel }: Prop
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto px-1 pt-4 pb-20">
+      <FormAlert message={errors.error || pageErrors?.error} />
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="category">Catégorie</Label>
