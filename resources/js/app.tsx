@@ -28,7 +28,7 @@ createInertiaApp({
 
             pageDefault.layout = (page: React.ReactNode) => {
                 if (name.startsWith('auth/')) {
-                    return <AuthLayout children={page} />;
+                    return <AuthLayout {...layoutProps} children={page} />;
                 }
 
                 if (name.startsWith('settings/')) {
