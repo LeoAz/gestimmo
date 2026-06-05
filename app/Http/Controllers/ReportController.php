@@ -35,10 +35,16 @@ class ReportController extends Controller
             ->where('rentals.next_payment_date', '<', now())
             ->select(
                 'properties.title as property_title',
-                DB::raw("tenants.first_name || ' ' || tenants.last_name as tenant_name"),
+                DB::raw(config('database.default') === 'sqlite'
+                    ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
+                    : "CONCAT(tenants.first_name, ' ', tenants.last_name) as tenant_name"
+                ),
                 'rentals.next_payment_date as due_date',
                 'rentals.rent_amount as amount_due',
-                DB::raw("strftime('%J', 'now') - strftime('%J', rentals.next_payment_date) as days_late")
+                DB::raw(config('database.default') === 'sqlite'
+                    ? "strftime('%J', 'now') - strftime('%J', rentals.next_payment_date) as days_late"
+                    : 'DATEDIFF(NOW(), rentals.next_payment_date) as days_late'
+                )
             );
 
         if ($request->property_id) {
@@ -72,7 +78,10 @@ class ReportController extends Controller
             ->where('payments.status', 'paid')
             ->select(
                 'properties.title as property_title',
-                DB::raw("tenants.first_name || ' ' || tenants.last_name as tenant_name"),
+                DB::raw(config('database.default') === 'sqlite'
+                    ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
+                    : "CONCAT(tenants.first_name, ' ', tenants.last_name) as tenant_name"
+                ),
                 'payments.payment_date',
                 'payments.invoice_number',
                 'payments.amount'
@@ -146,8 +155,14 @@ class ReportController extends Controller
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
             ->select(
                 'properties.title as property_title',
-                DB::raw("tenants.first_name || ' ' || tenants.last_name as tenant_name"),
-                DB::raw("strftime('%m/%Y', 'now') as period"),
+                DB::raw(config('database.default') === 'sqlite'
+                    ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
+                    : "CONCAT(tenants.first_name, ' ', tenants.last_name) as tenant_name"
+                ),
+                DB::raw(config('database.default') === 'sqlite'
+                    ? "strftime('%m/%Y', 'now') as period"
+                    : "DATE_FORMAT(NOW(), '%m/%Y') as period"
+                ),
                 'rentals.rent_amount as amount_expected'
             );
 

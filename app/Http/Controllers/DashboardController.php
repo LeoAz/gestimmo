@@ -25,7 +25,11 @@ class DashboardController extends Controller
             ->get();
 
         // 2. Revenue evolution (last 6 months)
-        $revenueEvolution = Payment::selectRaw('strftime("%Y-%m", payment_date) as month, SUM(amount) as total')
+        $revenueEvolution = Payment::selectRaw(
+            config('database.default') === 'sqlite'
+                ? 'strftime("%Y-%m", payment_date) as month, SUM(amount) as total'
+                : 'DATE_FORMAT(payment_date, "%Y-%m") as month, SUM(amount) as total'
+        )
             ->where('payment_date', '>=', Carbon::now()->subMonths(6)->startOfMonth())
             ->groupBy('month')
             ->orderBy('month')
