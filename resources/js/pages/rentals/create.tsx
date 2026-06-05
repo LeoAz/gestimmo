@@ -317,7 +317,6 @@ export default function Create({ villas, buildings, tenants }: Props) {
                     type="number"
                     value={data.deposit_amount}
                     onChange={(e) => setData("deposit_amount", e.target.value)}
-                    required
                   />
                   <InputError message={errors.deposit_amount} />
                 </div>
@@ -328,7 +327,6 @@ export default function Create({ villas, buildings, tenants }: Props) {
                     type="number"
                     value={data.rent_amount}
                     onChange={(e) => setData("rent_amount", e.target.value)}
-                    required
                   />
                   <InputError message={errors.rent_amount} />
                 </div>

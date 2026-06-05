@@ -75,6 +75,7 @@ export function PropertyForm({ property, categories, onSuccess, onCancel }: Prop
   const selectedCategory = categories.find(c => c.id === Number(data.property_category_id))
   const isBuildingOrComplex = selectedCategory?.slug === 'immeuble' || selectedCategory?.slug === 'batiment'
   const isVilla = selectedCategory?.slug === 'villa'
+  const isApartment = selectedCategory?.slug === 'appartement'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -192,7 +193,7 @@ export function PropertyForm({ property, categories, onSuccess, onCancel }: Prop
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="price">Prix de location</Label>
+          <Label htmlFor="price">Prix de location (CFA)</Label>
           <Input
             id="price"
             type="number"
@@ -202,14 +203,20 @@ export function PropertyForm({ property, categories, onSuccess, onCancel }: Prop
           <InputError message={errors.price} />
         </div>
 
-        {isVilla && (
+        {(isVilla || isApartment) && (
           <div className="space-y-2">
-            <Label htmlFor="type">Type de villa</Label>
+            <Label htmlFor="type">Type de {isVilla ? 'villa' : 'bien'}</Label>
             <Select onValueChange={(value) => setData("type", value)} value={data.type}>
               <SelectTrigger id="type">
                 <SelectValue placeholder="Sélectionnez le type" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="Studio">Studio</SelectItem>
+                <SelectItem value="Chambre salon">Chambre salon</SelectItem>
+                <SelectItem value="2 Chambres salon">2 Chambres salon</SelectItem>
+                <SelectItem value="3 Chambres salon">3 Chambres salon</SelectItem>
+                <SelectItem value="Appartement">Appartement</SelectItem>
+                <SelectItem value="Bureau">Bureau</SelectItem>
                 <SelectItem value="RDC">RDC</SelectItem>
                 <SelectItem value="R+1">R+1</SelectItem>
                 <SelectItem value="R+2">R+2</SelectItem>
