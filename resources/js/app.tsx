@@ -27,10 +27,6 @@ createInertiaApp({
             const layoutProps = typeof layoutConfig === 'object' ? layoutConfig : {};
 
             pageDefault.layout = (page: React.ReactNode) => {
-                if (name === 'welcome') {
-                    return page;
-                }
-
                 if (name.startsWith('auth/')) {
                     return <AuthLayout children={page} />;
                 }
