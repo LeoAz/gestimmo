@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Exports;
+
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+
+class RevenueExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles, WithTitle
+{
+    public function __construct(protected $data) {}
+
+    public function collection()
+    {
+        return $this->data;
+    }
+
+    public function title(): string
+    {
+        return 'Chiffre d\'Affaires';
+    }
+
+    public function headings(): array
+    {
+        return [
+            'Bien Immobilier',
+            'Locataire',
+            'Date de paiement',
+            'N° Facture',
+            'Montant',
+        ];
+    }
+
+    public function map($row): array
+    {
+        return [
+            $row->property_title,
+            $row->tenant_name,
+            $row->payment_date,
+            $row->invoice_number,
+            $row->amount.' FCFA',
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        return [
+            1 => [
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '10B981'],
+                ],
+            ],
+        ];
+    }
+}
