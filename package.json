@@ -75,6 +75,8 @@
         "vite": "^8.0.0"
     },
     "optionalDependencies": {
+        "@rolldown/binding-linux-x64-gnu": "1.0.0-beta.3",
+        "@rolldown/binding-linux-x64-musl": "1.0.0-beta.3",
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
         "@rollup/rollup-win32-x64-msvc": "4.9.5",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
