@@ -1,8 +1,9 @@
 import { Head, Link } from "@inertiajs/react"
-import { Eye, Plus } from "lucide-react"
+import { Edit, Eye, Plus, Trash } from "lucide-react"
 import * as React from "react"
 
 import { DataTable } from "@/components/data-table"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import Heading from "@/components/heading"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 ]
 
 export default function Index({ rentals }: Props) {
+  const [selectedRental, setSelectedRental] = React.useState<Rental | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
+
   const columns = [
     {
         header: "Locataire",
@@ -70,45 +74,61 @@ export default function Index({ rentals }: Props) {
         accessor: (row: Rental) => row.tenant.phone
     },
     {
-      header: "Date début",
-      accessor: (row: Rental) => new Date(row.start_date).toLocaleDateString('fr-FR'),
-      sortable: true,
-      sortKey: "start_date"
+        header: "Date début",
+        accessor: (row: Rental) => new Date(row.start_date).toLocaleDateString('fr-FR'),
+        sortable: true,
+        sortKey: "start_date"
     },
     {
-      header: "Caution",
-      accessor: (row: Rental) =>
-        row.deposit_amount ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(row.deposit_amount)) : "-",
+        header: "Caution",
+        accessor: (row: Rental) =>
+            row.deposit_amount ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(row.deposit_amount)) : "-",
     },
     {
-      header: "Statut",
-      accessor: (row: Rental) => {
-        const variants = {
-          active: "default",
-          completed: "secondary",
-          cancelled: "destructive",
-        } as const
+        header: "Statut",
+        accessor: (row: Rental) => {
+            const variants = {
+                active: "default",
+                completed: "secondary",
+                cancelled: "destructive",
+            } as const
 
-        const labels = {
-          active: "En cours",
-          completed: "Terminée",
-          cancelled: "Annulée",
-        }
+            const labels = {
+                active: "En cours",
+                completed: "Terminée",
+                cancelled: "Annulée",
+            }
 
-        return <Badge variant={variants[row.status]}>{labels[row.status]}</Badge>
-      },
+            return <Badge variant={variants[row.status]}>{labels[row.status]}</Badge>
+        },
     },
     {
-      header: "Actions",
-      accessor: (row: Rental) => (
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild title="Voir détails">
-            <Link href={`/rentals/${row.id}`}>
-              <Eye className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      ),
+        header: "Actions",
+        accessor: (row: Rental) => (
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" asChild title="Voir détails">
+                    <Link href={`/rentals/${row.id}`}>
+                        <Eye className="h-4 w-4" />
+                    </Link>
+                </Button>
+                <Button variant="ghost" size="icon" asChild title="Modifier">
+                    <Link href={`/rentals/${row.id}/edit`}>
+                        <Edit className="h-4 w-4" />
+                    </Link>
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                        setSelectedRental(row)
+                        setIsDeleteOpen(true)
+                    }}
+                    title="Supprimer"
+                >
+                    <Trash className="h-4 w-4 text-destructive" />
+                </Button>
+            </div>
+        ),
     },
   ]
 
@@ -144,6 +164,14 @@ export default function Index({ rentals }: Props) {
             ]}
         />
       </div>
+
+      <DeleteConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        url={`/rentals/${selectedRental?.id}`}
+        title="Supprimer la location"
+        description="Êtes-vous sûr de vouloir supprimer cette location ? Cette action est irréversible et le bien immobilier sera remis en statut disponible."
+      />
     </>
   )
 }

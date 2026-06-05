@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 
 interface Column<T> {
   header: string
@@ -206,10 +207,13 @@ export function DataTable<T>({
               {columns.map((column, index) => (
                 <TableHead
                   key={index}
-                  className={`${column.className} ${column.sortable ? "cursor-pointer select-none hover:text-foreground" : ""}`}
+                  className={cn(column.className, column.sortable && "cursor-pointer select-none hover:text-foreground")}
                   onClick={() => column.sortable && column.sortKey && handleSort(column.sortKey)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className={cn("flex items-center gap-1",
+                    column.className?.includes("text-right") && "flex-row-reverse",
+                    column.className?.includes("text-center") && "justify-center"
+                  )}>
                     {column.header}
                     {column.sortable && sortConfig.key === column.sortKey && (
                       <span className="text-xs">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>

@@ -15,6 +15,7 @@ export interface Payment {
   period_end: string
   invoice_number: string
   type: string
+  status: 'pending' | 'paid'
   notes: string | null
   rental: {
     rent_amount: string
@@ -34,9 +35,20 @@ export interface Payment {
 interface Props {
   payment: Payment
   printMode?: "standard" | "receipt"
+  organization?: {
+    name: string
+    address: string | null
+    phone: string | null
+    email: string | null
+    tax_number: string | null
+    registration_number: string | null
+    city: string | null
+    country: string | null
+    logo_url?: string | null
+  }
 }
 
-export function InvoiceView({ payment, printMode = "standard" }: Props) {
+export function InvoiceView({ payment, printMode = "standard", organization }: Props) {
   const formatCurrency = (amount: string | number) => {
     return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(amount))
   }
@@ -53,18 +65,32 @@ export function InvoiceView({ payment, printMode = "standard" }: Props) {
     <div className={`bg-white ${printMode === 'receipt' ? 'max-w-[80mm] mx-auto p-4' : 'p-4 sm:p-8'}`}>
       {/* Header */}
       <div className={`flex flex-col ${printMode === 'receipt' ? 'items-center text-center mb-6' : 'sm:flex-row justify-between items-start gap-8 mb-12'}`}>
-        <div>
-          <h1 className={`${printMode === 'receipt' ? 'text-xl' : 'text-3xl'} font-bold tracking-tight text-primary mb-2`}>IMO-APP</h1>
-          <p className="text-gray-500 text-xs">Gestion Immobilière Moderne</p>
-          <div className="mt-4 text-xs space-y-1">
-            <p>123 Rue de l'Immobilier</p>
-            <p>Dakar, Sénégal</p>
-            <p>+221 33 000 00 00</p>
+        <div className="flex flex-col gap-4">
+          {organization?.logo_url && (
+            <div className={`${printMode === 'receipt' ? 'w-16 h-16' : 'w-24 h-24'} overflow-hidden rounded mb-2`}>
+              <img src={organization.logo_url} alt="Logo" className="w-full h-full object-contain object-left" />
+            </div>
+          )}
+          <div>
+            <h1 className={`${printMode === 'receipt' ? 'text-xl' : 'text-3xl'} font-bold tracking-tight text-primary mb-2`}>
+              {organization?.name || 'IMO-APP'}
+            </h1>
+            <p className="text-gray-500 text-xs">{organization?.name ? 'Gestion Immobilière' : 'Gestion Immobilière Moderne'}</p>
+            <div className="mt-4 text-xs space-y-1">
+              <p>{organization?.address || '123 Rue de l\'Immobilier'}</p>
+              <p>{organization?.city ? `${organization.city}, ${organization.country || ''}` : 'Dakar, Sénégal'}</p>
+              <p>{organization?.phone || '+221 33 000 00 00'}</p>
+              {organization?.email && <p>{organization.email}</p>}
+              {organization?.tax_number && <p className="mt-2 font-semibold">IFU: {organization.tax_number}</p>}
+              {organization?.registration_number && <p className="font-semibold">RCCM: {organization.registration_number}</p>}
+            </div>
           </div>
         </div>
 
         <div className={`${printMode === 'receipt' ? 'mt-6 w-full' : 'text-right sm:text-right w-full sm:w-auto'}`}>
-          <h2 className={`${printMode === 'receipt' ? 'text-sm font-bold border-y py-2 my-4' : 'text-xl font-semibold text-gray-900 mb-1'}`}>REÇU DE PAIEMENT</h2>
+          <h2 className={`${printMode === 'receipt' ? 'text-sm font-bold border-y py-2 my-4' : 'text-xl font-semibold text-gray-900 mb-1'}`}>
+            {payment.status === 'paid' ? 'REÇU DE PAIEMENT' : 'FACTURE'}
+          </h2>
           <p className="text-gray-500 font-medium mb-4 text-sm">{payment.invoice_number}</p>
           <div className={`flex ${printMode === 'receipt' ? 'justify-center' : 'justify-end'}`}>
               <div className="bg-white p-1 border rounded-md">

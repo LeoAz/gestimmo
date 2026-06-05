@@ -3,6 +3,13 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Bell, Eye, EyeOff, Trash2 } from 'lucide-react';
 
+import {
+    destroy as notificationDestroy,
+    index as notificationIndex,
+    markAllAsRead,
+    markAsRead,
+    markAsUnread,
+} from '@/actions/App/Http/Controllers/NotificationController';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,21 +45,21 @@ interface Props {
 export default function NotificationsIndex({ notifications }: Props) {
     const { auth } = usePage<SharedData>().props;
 
-    const markAsRead = (id: string) => {
-        router.patch(route('notifications.mark-as-read', id));
+    const handleMarkAsRead = (id: string) => {
+        router.patch(markAsRead({ id }));
     };
 
-    const markAsUnread = (id: string) => {
-        router.patch(route('notifications.mark-as-unread', id));
+    const handleMarkAsUnread = (id: string) => {
+        router.patch(markAsUnread({ id }));
     };
 
-    const markAllAsRead = () => {
-        router.post(route('notifications.mark-all-as-read'));
+    const handleMarkAllAsRead = () => {
+        router.post(markAllAsRead());
     };
 
     const deleteNotification = (id: string) => {
         if (confirm('Voulez-vous supprimer cette notification ?')) {
-            router.delete(route('notifications.destroy', id));
+            router.delete(notificationDestroy({ id }));
         }
     };
 
@@ -72,7 +79,7 @@ export default function NotificationsIndex({ notifications }: Props) {
                         )}
                     </h1>
                     {notifications.data.some((n) => !n.read_at) && (
-                        <Button onClick={markAllAsRead} variant="outline" size="sm">
+                        <Button onClick={handleMarkAllAsRead} variant="outline" size="sm">
                             Tout marquer comme lu
                         </Button>
                     )}
@@ -97,11 +104,11 @@ export default function NotificationsIndex({ notifications }: Props) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {notification.read_at ? (
-                                                <Button variant="ghost" size="icon" onClick={() => markAsUnread(notification.id)} title="Marquer comme non lu">
+                                                <Button variant="ghost" size="icon" onClick={() => handleMarkAsUnread(notification.id)} title="Marquer comme non lu">
                                                     <EyeOff className="h-4 w-4" />
                                                 </Button>
                                             ) : (
-                                                <Button variant="ghost" size="icon" onClick={() => markAsRead(notification.id)} title="Marquer comme lu">
+                                                <Button variant="ghost" size="icon" onClick={() => handleMarkAsRead(notification.id)} title="Marquer comme lu">
                                                     <Eye className="h-4 w-4" />
                                                 </Button>
                                             )}
@@ -135,5 +142,5 @@ export default function NotificationsIndex({ notifications }: Props) {
 }
 
 NotificationsIndex.layout = (page: React.ReactNode) => (
-    <AppLayout breadcrumbs={[{ title: 'Notifications', href: '/notifications' }]}>{page}</AppLayout>
+    <AppLayout breadcrumbs={[{ title: 'Notifications', href: notificationIndex() }]}>{page}</AppLayout>
 );

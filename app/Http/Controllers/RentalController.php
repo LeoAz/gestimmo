@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\Property;
+use App\Models\PropertyCategory;
 use App\Models\Rental;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
@@ -40,12 +41,15 @@ class RentalController extends Controller
 
     public function create()
     {
-        $villas = Property::whereHas('category', function ($query) {
-            $query->where('slug', 'villa');
-        })->where('status', 'available')->get();
+        $categories = PropertyCategory::all();
+
+        $properties = Property::with('category')
+            ->where('status', 'available')
+            ->whereNull('parent_id')
+            ->get();
 
         $buildings = Property::whereHas('category', function ($query) {
-            $query->where('slug', 'immeuble');
+            $query->whereIn('slug', ['immeuble', 'batiment']);
         })->with(['apartments' => function ($query) {
             $query->where('status', 'available');
         }])->get();
@@ -53,7 +57,8 @@ class RentalController extends Controller
         $tenants = Tenant::all();
 
         return Inertia::render('rentals/create', [
-            'villas' => $villas,
+            'categories' => $categories,
+            'properties' => $properties,
             'buildings' => $buildings,
             'tenants' => $tenants,
         ]);
@@ -142,5 +147,83 @@ class RentalController extends Controller
                 $query->latest();
             }]),
         ]);
+    }
+
+    public function edit(Rental $rental)
+    {
+        $categories = PropertyCategory::all();
+
+        $properties = Property::with('category')
+            ->where(function ($query) use ($rental) {
+                $query->where('status', 'available')
+                    ->orWhere('id', $rental->property_id);
+            })
+            ->whereNull('parent_id')
+            ->get();
+
+        $buildings = Property::whereHas('category', function ($query) {
+            $query->whereIn('slug', ['immeuble', 'batiment']);
+        })->with(['apartments' => function ($query) use ($rental) {
+            $query->where('status', 'available')
+                ->orWhere('id', $rental->property_id);
+        }])->get();
+
+        $tenants = Tenant::all();
+
+        return Inertia::render('rentals/edit', [
+            'rental' => $rental->load(['property.category', 'tenant']),
+            'categories' => $categories,
+            'properties' => $properties,
+            'buildings' => $buildings,
+            'tenants' => $tenants,
+        ]);
+    }
+
+    public function update(Request $request, Rental $rental)
+    {
+        try {
+            $validated = $request->validate([
+                'property_id' => 'required|exists:properties,id',
+                'tenant_id' => 'required|exists:tenants,id',
+                'deposit_amount' => 'nullable|numeric|min:0',
+                'rent_amount' => 'nullable|numeric|min:0',
+                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual',
+                'start_date' => 'required|date',
+                'end_date' => 'nullable|date|after_or_equal:start_date',
+                'status' => 'required|string|in:active,completed,cancelled',
+            ]);
+
+            $oldPropertyId = $rental->property_id;
+
+            $rental->update($validated);
+
+            // Si le bien a changé, on met à jour les statuts
+            if ($oldPropertyId != $validated['property_id']) {
+                Property::where('id', $oldPropertyId)->update(['status' => 'available']);
+                Property::where('id', $validated['property_id'])->update(['status' => 'rented']);
+            }
+
+            return redirect()->route('rentals.index')
+                ->with('success', 'Location mise à jour avec succès.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Une erreur est survenue lors de la mise à jour : '.$e->getMessage())->withInput();
+        }
+    }
+
+    public function destroy(Rental $rental)
+    {
+        try {
+            $property = $rental->property;
+
+            $rental->delete();
+
+            // Mettre à jour le statut du bien
+            $property->update(['status' => 'available']);
+
+            return redirect()->route('rentals.index')
+                ->with('success', 'Location supprimée avec succès.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Une erreur est survenue lors de la suppression : '.$e->getMessage());
+        }
     }
 }

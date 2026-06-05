@@ -26,14 +26,11 @@ import {
 import * as React from "react"
 
 import { index as propertiesIndex } from '@/actions/App/Http/Controllers/PropertyController'
-import Heading from "@/components/heading"
+import { DataTable } from "@/components/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import AppLayout from "@/layouts/app-layout"
-import { cn } from "@/lib/utils"
 
 interface Apartment {
   id: number
@@ -128,348 +125,322 @@ export default function Show({ property, rentals, stats }: Props) {
 
   const activeRentals = rentals.filter(r => r.status === 'active')
 
+  const allPayments = React.useMemo(() => {
+    return rentals.flatMap(r =>
+      r.payments.map(p => ({
+        ...p,
+        tenant_name: `${r.tenant.first_name} ${r.tenant.last_name}`,
+        rental_id: r.id
+      }))
+    ).sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+  }, [rentals])
+
+  const paymentColumns = [
+    {
+      header: "Facture",
+      accessor: "invoice_number" as const,
+      className: "font-mono text-xs",
+      sortable: true,
+      sortKey: "invoice_number" as any
+    },
+    {
+      header: "Locataire",
+      accessor: (row: any) => row.tenant_name,
+      sortable: true,
+      sortKey: "tenant_name" as any
+    },
+    {
+      header: "Montant",
+      accessor: (row: any) => formatCurrency(row.amount),
+      sortable: true,
+      sortKey: "amount" as any
+    },
+    {
+      header: "Date",
+      accessor: (row: any) => format(new Date(row.payment_date), "dd/MM/yyyy"),
+      sortable: true,
+      sortKey: "payment_date" as any
+    },
+    {
+      header: "Action",
+      accessor: (row: any) => (
+        <div className="text-right">
+          <Button variant="ghost" size="icon" asChild>
+            <a href={`/payments/${row.id}/invoice`} target="_blank" rel="noreferrer">
+              <Printer className="h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+      ),
+      className: "text-right"
+    }
+  ]
+
   return (
     <>
       <Head title={property.title} />
-      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-8 p-6 max-w-full">
         {/* Header Section */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b pb-6">
+          <div className="flex items-start gap-4">
+            <Button variant="outline" size="icon" asChild className="mt-1">
               <Link href={propertiesIndex().url}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
             <div>
-              <Heading title={property.title} description={property.category.name} />
-              <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {property.city}, {property.address}
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="font-normal border-primary/20 text-primary">
+                  {property.category.name}
+                </Badge>
+                <Badge variant={statusVariants[property.status]} className="font-medium">
+                  {statusLabels[property.status]}
+                </Badge>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight">{property.title}</h1>
+              <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  {property.city}, {property.address}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Maximize className="h-4 w-4" />
+                  {property.surface_area || "-"} m²
+                </span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={statusVariants[property.status]} className="px-3 py-1 text-sm">
-              {statusLabels[property.status]}
-            </Badge>
+          <div className="flex items-center gap-3">
+             <Button variant="outline" asChild>
+                <Link href={`/properties/${property.id}/edit`}>Modifier le bien</Link>
+             </Button>
+             <Button asChild>
+                <Link href={`/rentals/create?property_id=${property.id}`}>Nouvelle location</Link>
+             </Button>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.total_revenue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">Généré par ce bien</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenu du Mois</CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.monthly_revenue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">Paiements encaissés ce mois</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Locations Actives</CardTitle>
-              <KeyIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.active_rentals_count}</div>
-              <p className="text-xs text-muted-foreground mt-1">Contrats en cours</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Locations</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total_rentals_count}</div>
-              <p className="text-xs text-muted-foreground mt-1">Historique des locataires</p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1 p-1">
+            <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" /> Revenu Total
+            </p>
+            <p className="text-2xl font-bold tracking-tight">{formatCurrency(stats.total_revenue)}</p>
+          </div>
+          <div className="space-y-1 p-1 border-l pl-6">
+            <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <CreditCard className="h-4 w-4" /> Ce mois
+            </p>
+            <p className="text-2xl font-bold tracking-tight">{formatCurrency(stats.monthly_revenue)}</p>
+          </div>
+          <div className="space-y-1 p-1 border-l pl-6">
+            <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <KeyIcon className="h-4 w-4" /> Locations actives
+            </p>
+            <p className="text-2xl font-bold tracking-tight">{stats.active_rentals_count}</p>
+          </div>
+          <div className="space-y-1 p-1 border-l pl-6">
+            <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Users className="h-4 w-4" /> Total locataires
+            </p>
+            <p className="text-2xl font-bold tracking-tight">{stats.total_rentals_count}</p>
+          </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid gap-10 lg:grid-cols-12 mt-4">
+          <div className="lg:col-span-8 space-y-10">
+            {/* Description Section */}
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+                <Sun className="h-5 w-5 text-orange-500" />
+                Description
+              </h2>
+              <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed text-[15px]">
+                {property.description || "Aucune description fournie."}
+              </p>
+            </section>
+
             {/* Current Rentals Section */}
             {activeRentals.length > 0 && (
-              <Card className="border-primary/20 bg-primary/5">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                    Locations en cours
-                  </CardTitle>
-                  <CardDescription>Locataires occupant actuellement le bien ou ses unités.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {activeRentals.map((rental) => (
-                      <div key={rental.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border bg-background p-4 shadow-sm">
-                        <div className="space-y-1">
-                          <p className="font-bold text-lg">
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Locations en cours
+                </h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {activeRentals.map((rental) => (
+                    <div key={rental.id} className="flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-lg leading-none">
                             {rental.tenant.first_name} {rental.tenant.last_name}
                           </p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              Depuis le {format(new Date(rental.start_date), "dd/MM/yyyy")}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Prochain : {rental.next_payment_date ? format(new Date(rental.next_payment_date), "dd MMMM", { locale: fr }) : "-"}
-                            </span>
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Actif</Badge>
+                        </div>
+                        <div className="space-y-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            Depuis le {format(new Date(rental.start_date), "dd MMMM yyyy", { locale: fr })}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Prochain paiement : <span className="font-medium text-foreground">{rental.next_payment_date ? format(new Date(rental.next_payment_date), "dd MMM", { locale: fr }) : "-"}</span>
                           </div>
                         </div>
-                        <div className="mt-4 sm:mt-0 flex items-center justify-between sm:justify-end gap-4 border-t pt-4 sm:border-0 sm:pt-0">
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Loyer</p>
-                            <p className="font-bold text-primary">{formatCurrency(rental.rent_amount)}</p>
-                          </div>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/rentals/${rental.id}`}>
-                              Détails
-                            </Link>
-                          </Button>
+                      </div>
+                      <div className="mt-6 flex items-center justify-between border-t pt-4">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Loyer mensuel</p>
+                          <p className="text-xl font-bold text-primary">{formatCurrency(rental.rent_amount)}</p>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Description Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Description</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed">
-                  {property.description || "Aucune description fournie."}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Apartments Section */}
-            {property.apartments.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Unités ({property.apartments.length})</CardTitle>
-                  <CardDescription>Liste des appartements ou unités de ce bien.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {property.apartments.map((apt) => (
-                      <div key={apt.id} className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
-                        <div className="space-y-1">
-                          <p className="font-medium flex items-center gap-2">
-                            <Home className="h-4 w-4 text-muted-foreground" />
-                            {apt.title}
-                          </p>
-                          <div className="flex gap-3 text-xs text-muted-foreground">
-                            <span>Étage {apt.floor_number}</span>
-                            <span>•</span>
-                            <span>{apt.surface_area} m²</span>
-                            <span>•</span>
-                            <span>{apt.bedrooms_count || 0} ch</span>
-                          </div>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <p className="font-bold">{formatCurrency(apt.price)}</p>
-                          <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px]">
-                            {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Payment History Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <History className="h-5 w-5" />
-                  Historique des paiements
-                </CardTitle>
-                <CardDescription>Les derniers versements reçus pour ce bien.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Facture</TableHead>
-                        <TableHead>Locataire</TableHead>
-                        <TableHead>Montant</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rentals.flatMap(r => r.payments).sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).slice(0, 5).length > 0 ? (
-                        rentals.flatMap(r => r.payments)
-                          .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
-                          .slice(0, 10)
-                          .map((payment) => {
-                            const rental = rentals.find(r => r.payments.some(p => p.id === payment.id))
-
-                            return (
-                              <TableRow key={payment.id}>
-                                <TableCell className="font-medium text-xs">{payment.invoice_number}</TableCell>
-                                <TableCell className="text-sm">
-                                  {rental?.tenant.first_name} {rental?.tenant.last_name}
-                                </TableCell>
-                                <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                  {format(new Date(payment.payment_date), "dd/MM/yyyy")}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" asChild>
-                                    <a href={`/payments/${payment.id}/invoice`} target="_blank">
-                                      <Printer className="h-4 w-4" />
-                                    </a>
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                            Aucun paiement enregistré.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-6">
-            {/* Details Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Détails du bien</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-sm text-muted-foreground">Prix de location estimé</span>
-                  <span className="text-xl font-bold text-primary">{formatCurrency(property.price)}</span>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Surface</span>
-                    <p className="flex items-center gap-2 font-medium">
-                      <Maximize className="h-4 w-4 text-muted-foreground" />
-                      {property.surface_area ? `${property.surface_area} m²` : "-"}
-                    </p>
-                  </div>
-                  <div className="space-y-1 text-right">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Type</span>
-                    <p className="font-medium">{property.type || property.category.name}</p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Pièces & Commodités</span>
-                  <div className="grid grid-cols-2 gap-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Bed className="h-4 w-4 text-muted-foreground" />
-                      {property.bedrooms_count || 0} chambres
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Bath className="h-4 w-4 text-muted-foreground" />
-                      {property.bathrooms_count || 0} toilettes
-                    </div>
-                    {property.has_kitchen && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <ChefHat className="h-4 w-4 text-muted-foreground" />
-                        Cuisine équipée
-                      </div>
-                    )}
-                    {property.has_solar_panels && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Sun className="h-4 w-4 text-muted-foreground" />
-                        Panneaux solaires
-                      </div>
-                    )}
-                    {property.has_generator && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Zap className="h-4 w-4 text-muted-foreground" />
-                        Groupe électrogène
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Localisation</span>
-                  <p className="text-sm font-medium">{property.city}</p>
-                  <p className="text-sm text-muted-foreground">{property.address}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Tenant History Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Historique Locataire</CardTitle>
-                <CardDescription>Derniers locataires ayant occupé le bien.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {rentals.slice(0, 5).map((rental) => (
-                    <div key={rental.id} className="flex items-start gap-3">
-                      <div className={cn(
-                        "mt-1 flex h-2 w-2 rounded-full",
-                        rental.status === 'active' ? "bg-green-500" : "bg-slate-300"
-                      )} />
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {rental.tenant.first_name} {rental.tenant.last_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(rental.start_date), "MMM yyyy")}
-                          {rental.status === 'active' ? " - Présent" : ""}
-                        </p>
+                        <Button variant="secondary" size="sm" asChild className="rounded-full px-4">
+                          <Link href={`/rentals/${rental.id}`}>
+                            Gérer
+                          </Link>
+                        </Button>
                       </div>
                     </div>
                   ))}
-                  {rentals.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">Aucun locataire enregistré.</p>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </section>
+            )}
+
+            {/* Units Section */}
+            {property.apartments.length > 0 && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-blue-500" />
+                    Unités & Appartements
+                  </h2>
+                  <Badge variant="secondary">{property.apartments.length} unités</Badge>
+                </div>
+                <div className="grid gap-3">
+                  {property.apartments.map((apt) => (
+                    <div key={apt.id} className="group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/30 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                           <Home className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{apt.title}</p>
+                          <div className="flex gap-4 text-xs text-muted-foreground mt-0.5">
+                            <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> Étage {apt.floor_number}</span>
+                            <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> {apt.surface_area} m²</span>
+                            <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {apt.bedrooms_count || 0} ch</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="font-bold">{formatCurrency(apt.price)}</p>
+                          <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px] h-5 px-1.5">
+                            {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
+                          </Badge>
+                        </div>
+                        <Button variant="ghost" size="icon" asChild>
+                           <Link href={`/properties/${apt.id}`}>
+                              <Eye className="h-4 w-4" />
+                           </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Payment History Section */}
+            <section className="space-y-4">
+               <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    Historique des paiements
+                  </h2>
+               </div>
+               <DataTable
+                  columns={paymentColumns}
+                  data={allPayments}
+                  searchKey="tenant_name"
+                  emptyMessage="Aucun paiement enregistré pour ce bien."
+               />
+            </section>
+          </div>
+
+          <aside className="lg:col-span-4 space-y-8">
+            {/* Financial Overview */}
+            <div className="rounded-2xl bg-primary/5 p-6 border border-primary/10 space-y-6">
+                <h3 className="font-bold text-lg">Synthèse Financière</h3>
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Valeur locative</span>
+                        <span className="text-2xl font-black text-primary">{formatCurrency(property.price)}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Features Section */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Caractéristiques</h3>
+              <div className="flex gap-3">
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                    <Bed className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">Chambres</span>
+                      <span className="font-bold">{property.bedrooms_count || 0}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                    <Bath className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">Salles de bain</span>
+                      <span className="font-bold">{property.bathrooms_count || 0}</span>
+                    </div>
+                  </div>
+                  {property.living_rooms_count !== null && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Building2 className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Salons</span>
+                        <span className="font-bold">{property.living_rooms_count}</span>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
+
+            {/* Amenities Section */}
+            <div className="space-y-4">
+                <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Équipements</h3>
+                <div className="flex flex-wrap gap-2">
+                    {property.has_kitchen && (
+                        <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
+                           <ChefHat className="h-3.5 w-3.5" /> Cuisine
+                        </Badge>
+                    )}
+                    {property.has_solar_panels && (
+                        <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
+                           <Sun className="h-3.5 w-3.5" /> Solaire
+                        </Badge>
+                    )}
+                    {property.has_generator && (
+                        <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
+                           <Zap className="h-3.5 w-3.5" /> Groupe
+                        </Badge>
+                    )}
+                    {!property.has_kitchen && !property.has_solar_panels && !property.has_generator && (
+                       <span className="text-sm text-muted-foreground italic">Aucun équipement spécifié</span>
+                    )}
+                </div>
+            </div>
 
             <Button className="w-full" variant="outline" asChild>
               <Link href={propertiesIndex().url}>
                 Retour à la liste
               </Link>
             </Button>
-          </div>
+          </aside>
         </div>
       </div>
     </>

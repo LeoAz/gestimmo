@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    $this->categoryVilla = PropertyCategory::factory()->create(['name' => 'Villa', 'slug' => 'villa']);
-    $this->categoryBuilding = PropertyCategory::factory()->create(['name' => 'Immeuble', 'slug' => 'immeuble']);
-    $this->categoryApartment = PropertyCategory::factory()->create(['name' => 'Appartement', 'slug' => 'appartement']);
+    $this->categoryVilla = PropertyCategory::firstWhere('slug', 'villa') ?? PropertyCategory::factory()->create(['name' => 'Villa', 'slug' => 'villa']);
+    $this->categoryBuilding = PropertyCategory::firstWhere('slug', 'immeuble') ?? PropertyCategory::factory()->create(['name' => 'Immeuble', 'slug' => 'immeuble']);
+    $this->categoryApartment = PropertyCategory::firstWhere('slug', 'appartement') ?? PropertyCategory::factory()->create(['name' => 'Appartement', 'slug' => 'appartement']);
 });
 
 test('rentals index page is displayed', function () {
@@ -67,6 +67,71 @@ test('a rental can be created for a villa', function () {
     $rental = Rental::first();
     $tenant = $rental->tenant;
     Storage::disk('public')->assertExists($tenant->photo);
+});
+
+test('a rental can be updated', function () {
+    $villa = Property::factory()->create([
+        'property_category_id' => $this->categoryVilla->id,
+        'status' => 'rented',
+    ]);
+
+    $newVilla = Property::factory()->create([
+        'property_category_id' => $this->categoryVilla->id,
+        'status' => 'available',
+    ]);
+
+    $tenant = Tenant::factory()->create();
+    $rental = Rental::factory()->create([
+        'property_id' => $villa->id,
+        'tenant_id' => $tenant->id,
+        'status' => 'active',
+    ]);
+
+    $data = [
+        'property_id' => $newVilla->id,
+        'tenant_id' => $tenant->id,
+        'deposit_amount' => 600000,
+        'rent_amount' => 120000,
+        'payment_frequency' => 'quarterly',
+        'start_date' => now()->toDateString(),
+        'status' => 'active',
+    ];
+
+    $response = $this->actingAs($this->user)
+        ->put(route('rentals.update', $rental), $data);
+
+    $response->assertRedirect(route('rentals.index'));
+
+    $this->assertDatabaseHas('rentals', [
+        'id' => $rental->id,
+        'property_id' => $newVilla->id,
+        'rent_amount' => 120000,
+    ]);
+
+    $this->assertEquals('available', $villa->fresh()->status);
+    $this->assertEquals('rented', $newVilla->fresh()->status);
+});
+
+test('a rental can be deleted and property becomes available', function () {
+    $villa = Property::factory()->create([
+        'property_category_id' => $this->categoryVilla->id,
+        'status' => 'rented',
+    ]);
+
+    $rental = Rental::factory()->create([
+        'property_id' => $villa->id,
+    ]);
+
+    $response = $this->actingAs($this->user)
+        ->delete(route('rentals.destroy', $rental));
+
+    $response->assertRedirect(route('rentals.index'));
+
+    $this->assertDatabaseMissing('rentals', [
+        'id' => $rental->id,
+    ]);
+
+    $this->assertEquals('available', $villa->fresh()->status);
 });
 
 test('a rental can be created for an apartment', function () {

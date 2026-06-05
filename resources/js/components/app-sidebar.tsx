@@ -1,9 +1,15 @@
 import { Link } from '@inertiajs/react';
-import { BarChart3, Bell, Building2, FileText, Key, LayoutGrid, Settings, Tags, Users } from 'lucide-react';
+import { BarChart3, Bell, Building2, LayoutGrid, Settings } from 'lucide-react';
 
+import { index as depositsIndex } from '@/actions/App/Http/Controllers/DepositController';
+import { index as notificationsIndex } from '@/actions/App/Http/Controllers/NotificationController';
+import { index as paymentsIndex } from '@/actions/App/Http/Controllers/PaymentController';
 import { index as propertyCategoriesIndex } from '@/actions/App/Http/Controllers/PropertyCategoryController';
 import { index as propertiesIndex } from '@/actions/App/Http/Controllers/PropertyController';
+import { index as organizationIndex } from '@/actions/App/Http/Controllers/Settings/OrganizationController';
 import { index as rentalsIndex } from '@/actions/App/Http/Controllers/RentalController';
+import { index as reportsIndex } from '@/actions/App/Http/Controllers/ReportController';
+import { index as tenantsIndex } from '@/actions/App/Http/Controllers/TenantController';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -23,7 +29,7 @@ import type { NavItem } from '@/types';
 const mainNavItems: NavItem[] = [
     {
         title: 'Notifications',
-        href: '/notifications',
+        href: notificationsIndex(),
         icon: Bell,
     },
     {
@@ -43,6 +49,10 @@ const mainNavItems: NavItem[] = [
                 title: 'Biens immobiliers',
                 href: propertiesIndex(),
             },
+            {
+                title: 'Organisations',
+                href: organizationIndex(),
+            },
         ],
     },
     {
@@ -55,17 +65,21 @@ const mainNavItems: NavItem[] = [
             },
             {
                 title: 'Locataires',
-                href: '/tenants',
+                href: tenantsIndex(),
             },
             {
                 title: 'Factures & Paiement',
-                href: '/payments',
+                href: paymentsIndex(),
+            },
+            {
+                title: 'Gestion des cautions',
+                href: depositsIndex(),
             },
         ],
     },
     {
         title: 'Rapports',
-        href: '/reports',
+        href: reportsIndex(),
         icon: BarChart3,
     },
 ];

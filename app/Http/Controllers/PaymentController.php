@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Rental;
 use Carbon\Carbon;
@@ -40,8 +41,15 @@ class PaymentController extends Controller
 
     public function invoice(Payment $payment)
     {
+        $organization = Organization::first();
+
+        if ($organization && $organization->logo) {
+            $organization->logo_url = asset('storage/'.$organization->logo);
+        }
+
         return Inertia::render('payments/invoice', [
             'payment' => $payment->load(['rental.property', 'rental.tenant']),
+            'organization' => $organization,
         ]);
     }
 
@@ -50,7 +58,9 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'rental_id' => 'required|exists:rentals,id',
             'amount' => 'required|numeric|min:0',
-            'payment_date' => 'required|date',
+            'payment_date' => 'nullable|date',
+            'payment_method' => 'nullable|string|in:cash,bank_transfer,mobile_money',
+            'status' => 'required|string|in:pending,paid',
             'notes' => 'nullable|string',
         ]);
 
@@ -63,21 +73,54 @@ class PaymentController extends Controller
         $payment = Payment::create([
             'rental_id' => $rental->id,
             'amount' => $validated['amount'],
-            'payment_date' => $validated['payment_date'],
+            'payment_date' => $validated['status'] === 'paid' ? ($validated['payment_date'] ?? now()) : null,
+            'payment_method' => $validated['payment_method'],
             'period_start' => $periodStart,
             'period_end' => $periodEnd->copy()->subDay(), // La période finit la veille du prochain paiement
             'type' => 'rent',
-            'status' => 'paid',
+            'status' => $validated['status'],
             'invoice_number' => 'INV-'.strtoupper(uniqid('', true)),
             'notes' => $validated['notes'],
         ]);
 
+        // Si le paiement est effectué, mettre à jour la prochaine date de paiement de la location
+        if ($payment->status === 'paid') {
+            $rental->update([
+                'next_payment_date' => $periodEnd,
+            ]);
+        }
+
+        $message = $payment->status === 'paid' ? 'Paiement enregistré et location reconduite.' : 'Facture (créance) générée.';
+
+        return back()->with('success', $message);
+    }
+
+    public function markAsPaid(Request $request, Payment $payment)
+    {
+        $validated = $request->validate([
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money',
+        ]);
+
+        if ($payment->status === 'paid') {
+            return back()->with('error', 'Cette facture est déjà payée.');
+        }
+
+        $payment->update([
+            'status' => 'paid',
+            'payment_date' => $validated['payment_date'],
+            'payment_method' => $validated['payment_method'],
+        ]);
+
         // Mettre à jour la prochaine date de paiement de la location
+        $rental = $payment->rental;
+        $periodEnd = $this->calculateNextPaymentDate($payment->period_start, $rental->payment_frequency);
+
         $rental->update([
             'next_payment_date' => $periodEnd,
         ]);
 
-        return back()->with('success', 'Paiement enregistré et location reconduite.');
+        return back()->with('success', 'La facture a été marquée comme payée et la location reconduite.');
     }
 
     private function calculateNextPaymentDate($startDate, $frequency)

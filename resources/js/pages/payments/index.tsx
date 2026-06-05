@@ -3,10 +3,13 @@ import { format } from "date-fns"
 import { Download, Eye, Printer } from "lucide-react"
 import * as React from "react"
 
+import { index as paymentsIndex } from "@/actions/App/Http/Controllers/PaymentController"
+import { show as rentalsShow } from "@/actions/App/Http/Controllers/RentalController"
 import { DataTable } from "@/components/data-table"
 import Heading from "@/components/heading"
 import { InvoiceView } from "@/components/invoice-view"
 import type { Payment } from "@/components/invoice-view"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -58,10 +61,34 @@ export default function Index({ payments }: Props) {
             sortKey: "amount"
         },
         {
+            header: "Statut",
+            accessor: (row: Payment) => (
+                <Badge variant={row.status === 'paid' ? 'default' : 'destructive'}>
+                    {row.status === 'paid' ? 'Payé' : 'Impayé'}
+                </Badge>
+            )
+        },
+        {
             header: "Date Paiement",
-            accessor: (row: Payment) => format(new Date(row.payment_date), "dd/MM/yyyy"),
+            accessor: (row: Payment) => row.payment_date ? format(new Date(row.payment_date), "dd/MM/yyyy") : "-",
             sortable: true,
             sortKey: "payment_date"
+        },
+        {
+            header: "Moyen",
+            accessor: (row: Payment) => {
+                if (!row.payment_method) {
+                    return "-"
+                }
+
+                const methods = {
+                    cash: "Espèces",
+                    bank_transfer: "Virement",
+                    mobile_money: "Mobile Money"
+                }
+
+                return methods[row.payment_method as keyof typeof methods] || row.payment_method
+            }
         },
         {
             header: "Période",
@@ -84,7 +111,7 @@ export default function Index({ payments }: Props) {
                         <Printer className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" asChild title="Détails de la location">
-                        <Link href={`/rentals/${row.rental.id}`}>
+                        <Link href={rentalsShow({ rental: row.rental.id })}>
                             <Eye className="h-4 w-4" />
                         </Link>
                     </Button>
@@ -164,7 +191,7 @@ export default function Index({ payments }: Props) {
 Index.layout = (page: React.ReactNode) => (
     <AppLayout
         breadcrumbs={[
-            { title: "Factures & Reçus", href: "/payments" },
+            { title: "Factures & Reçus", href: paymentsIndex() },
         ]}
     >
         {page}

@@ -9,9 +9,10 @@ import AppLayout from "@/layouts/app-layout"
 
 interface Props {
   payment: Payment
+  organization?: any
 }
 
-export default function Invoice({ payment }: Props) {
+export default function Invoice({ payment, organization }: Props) {
   const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
 
   const handlePrint = () => {
@@ -45,14 +46,11 @@ export default function Invoice({ payment }: Props) {
                 <Button onClick={handlePrint} variant="outline" className="flex items-center gap-2">
                     <Printer className="h-4 w-4" /> Imprimer
                 </Button>
-                <Button onClick={handlePrint} variant="outline" className="flex items-center gap-2">
-                    <Download className="h-4 w-4" /> PDF
-                </Button>
             </div>
           </div>
 
           <div className="bg-white shadow-sm print:shadow-none border border-gray-100 print:border-none rounded-lg overflow-hidden">
-            <InvoiceView payment={payment} printMode={printMode} />
+            <InvoiceView payment={payment} printMode={printMode} organization={organization} />
           </div>
         </div>
       </div>
