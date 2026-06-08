@@ -23,8 +23,8 @@ export default function Invoice({ payment, organization }: Props) {
     <>
       <Head title={`Facture ${payment.invoice_number}`} />
 
-      <div className="flex flex-col gap-6 p-4 sm:p-8 print:bg-white print:p-0">
-        <div className="mx-auto w-full max-w-4xl space-y-6">
+      <div className="flex flex-col gap-6 p-4 sm:p-8 print:bg-white print:p-0 print:m-0">
+        <div className="mx-auto w-full max-w-4xl space-y-6 print:max-w-none print:space-y-0">
           <div className="flex justify-between items-center print:hidden">
             <div className="flex gap-2 bg-white p-1 rounded-lg border shadow-sm">
                 <Button

@@ -220,6 +220,20 @@
     }
 }
 
+@media print {
+    [data-slot="sidebar-wrapper"] {
+        @apply block !important;
+    }
+
+    [data-slot="sidebar-inset"] {
+        @apply m-0 p-0 border-none shadow-none !important;
+    }
+
+    .print-hidden, .print\:hidden {
+        display: none !important;
+    }
+}
+
 @theme inline {
     --font-heading:
         var(--font-sans);

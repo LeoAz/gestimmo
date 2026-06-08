@@ -66,31 +66,29 @@ class PaymentController extends Controller
 
         $rental = Rental::findOrFail($validated['rental_id']);
 
-        // Déterminer la période couverte par ce paiement
+        // Déterminer la période actuelle
         $periodStart = $rental->next_payment_date;
-        $periodEnd = $this->calculateNextPaymentDate($periodStart, $rental->payment_frequency);
+        $periodEnd = $this->calculateNextPaymentDate($periodStart, $rental->payment_frequency)->subDay();
 
         $payment = Payment::create([
             'rental_id' => $rental->id,
             'amount' => $validated['amount'],
-            'payment_date' => $validated['status'] === 'paid' ? ($validated['payment_date'] ?? now()) : null,
+            'payment_date' => $validated['status'] === 'paid' ? ($validated['payment_date'] ?? now()) : now(),
             'payment_method' => $validated['payment_method'],
             'period_start' => $periodStart,
-            'period_end' => $periodEnd->copy()->subDay(), // La période finit la veille du prochain paiement
+            'period_end' => $periodEnd,
             'type' => 'rent',
             'status' => $validated['status'],
             'invoice_number' => 'INV-'.strtoupper(uniqid('', true)),
-            'notes' => $validated['notes'],
+            'notes' => $validated['notes'] ?? null,
         ]);
 
-        // Si le paiement est effectué, mettre à jour la prochaine date de paiement de la location
+        // Si le paiement est effectué, recalculer la prochaine date de paiement
         if ($payment->status === 'paid') {
-            $rental->update([
-                'next_payment_date' => $periodEnd,
-            ]);
+            $this->updateRentalNextPaymentDate($rental);
         }
 
-        $message = $payment->status === 'paid' ? 'Paiement enregistré et location reconduite.' : 'Facture (créance) générée.';
+        $message = $payment->status === 'paid' ? 'Paiement enregistré.' : 'Facture (créance) générée.';
 
         return back()->with('success', $message);
     }
@@ -112,15 +110,41 @@ class PaymentController extends Controller
             'payment_method' => $validated['payment_method'],
         ]);
 
-        // Mettre à jour la prochaine date de paiement de la location
-        $rental = $payment->rental;
-        $periodEnd = $this->calculateNextPaymentDate($payment->period_start, $rental->payment_frequency);
+        // Recalculer la prochaine date de paiement de la location
+        $this->updateRentalNextPaymentDate($payment->rental);
+
+        return back()->with('success', 'La facture a été marquée comme payée.');
+    }
+
+    /**
+     * Met à jour la date de prochain paiement en fonction du total payé.
+     */
+    public function updateRentalNextPaymentDate(Rental $rental)
+    {
+        // On commence par la date de début de la location
+        $currentDate = $rental->start_date;
+
+        // Total de tous les paiements "payés"
+        $totalPaid = Payment::where('rental_id', $rental->id)
+            ->where('status', 'paid')
+            ->where('type', 'rent')
+            ->sum('amount');
+
+        $rentAmount = $rental->rent_amount;
+
+        if ($rentAmount <= 0) {
+            return;
+        }
+
+        // On avance la date tant que le total payé couvre le loyer des périodes successives
+        while ($totalPaid >= $rentAmount) {
+            $totalPaid -= $rentAmount;
+            $currentDate = $this->calculateNextPaymentDate($currentDate, $rental->payment_frequency);
+        }
 
         $rental->update([
-            'next_payment_date' => $periodEnd,
+            'next_payment_date' => $currentDate,
         ]);
-
-        return back()->with('success', 'La facture a été marquée comme payée et la location reconduite.');
     }
 
     private function calculateNextPaymentDate($startDate, $frequency)
