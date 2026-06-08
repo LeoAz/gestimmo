@@ -222,7 +222,11 @@
 
 @media print {
     [data-slot="sidebar-wrapper"] {
-        display: block !important;
+        display: none !important;
+    }
+
+    [data-slot="sidebar"] {
+        display: none !important;
     }
 
     [data-slot="sidebar-inset"] {
@@ -230,6 +234,8 @@
         padding: 0 !important;
         border: none !important;
         box-shadow: none !important;
+        display: block !important;
+        width: 100% !important;
     }
 
     .print-hidden, .print\:hidden {
