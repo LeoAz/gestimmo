@@ -221,23 +221,6 @@
 }
 
 @media print {
-    [data-slot="sidebar-wrapper"] {
-        display: none !important;
-    }
-
-    [data-slot="sidebar"] {
-        display: none !important;
-    }
-
-    [data-slot="sidebar-inset"] {
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        box-shadow: none !important;
-        display: block !important;
-        width: 100% !important;
-    }
-
     .print-hidden, .print\:hidden {
         display: none !important;
     }

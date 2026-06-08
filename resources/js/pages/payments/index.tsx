@@ -179,6 +179,13 @@ export default function Index({ payments }: Props) {
                                 <div className="border rounded-lg bg-white overflow-hidden shadow-sm">
                                     <InvoiceView payment={selectedPayment} printMode={printMode} />
                                 </div>
+                                <div className="flex justify-center mt-4 print:hidden">
+                                    <Button asChild variant="link">
+                                        <Link href={`/payments/${selectedPayment.id}/invoice`}>
+                                            Ouvrir en plein écran pour impression
+                                        </Link>
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </DialogContent>
