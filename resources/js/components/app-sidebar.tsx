@@ -72,6 +72,10 @@ const mainNavItems: NavItem[] = [
                 href: paymentsIndex(),
             },
             {
+                title: 'Dépenses',
+                href: '/expenses',
+            },
+            {
                 title: 'Gestion des cautions',
                 href: depositsIndex(),
             },
