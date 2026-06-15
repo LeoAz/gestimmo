@@ -33,8 +33,24 @@ class PaymentController extends Controller
             $query->where('status', $request->status);
         }
 
+        $payments = $query->orderByDesc('payment_date')->get();
+
+        // Calcul des futurs paiements (ceux qui n'ont pas encore de facture mais dont la date de prochain paiement est passée ou proche)
+        $futurePayments = Rental::with(['property', 'tenant'])
+            ->where('status', 'active')
+            ->where('next_payment_date', '<=', now()->addDays(30))
+            ->get();
+
+        // Créances à recouvrer (paiements de type 'rent' avec statut 'pending')
+        $debts = Payment::with(['rental.property', 'rental.tenant'])
+            ->where('status', 'pending')
+            ->where('type', 'rent')
+            ->get();
+
         return Inertia::render('payments/index', [
-            'payments' => $query->orderByDesc('payment_date')->get(),
+            'payments' => $payments,
+            'futurePayments' => $futurePayments,
+            'debts' => $debts,
             'filters' => $request->only(['search', 'status']),
         ]);
     }
@@ -58,21 +74,31 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'rental_id' => 'required|exists:rentals,id',
             'amount' => 'required|numeric|min:0',
+            'months_count' => 'required|integer|min:1',
             'payment_date' => 'nullable|date',
-            'payment_method' => 'nullable|string|in:cash,bank_transfer,mobile_money',
+            'payment_method' => 'nullable|string|in:cash,bank_transfer,mobile_money,balance',
             'status' => 'required|string|in:pending,paid',
             'notes' => 'nullable|string',
         ]);
 
-        $rental = Rental::findOrFail($validated['rental_id']);
+        $rental = Rental::with('tenant')->findOrFail($validated['rental_id']);
+
+        if ($validated['status'] === 'paid' && $validated['payment_method'] === 'balance') {
+            if ($rental->tenant->balance < $validated['amount']) {
+                return back()->with('error', 'Le solde du locataire est insuffisant.');
+            }
+
+            $rental->tenant->decrement('balance', $validated['amount']);
+        }
 
         // Déterminer la période actuelle
         $periodStart = $rental->next_payment_date;
-        $periodEnd = $this->calculateNextPaymentDate($periodStart, $rental->payment_frequency)->subDay();
+        $periodEnd = Carbon::parse($periodStart)->addMonths($validated['months_count'])->subDay();
 
         $payment = Payment::create([
             'rental_id' => $rental->id,
             'amount' => $validated['amount'],
+            'months_count' => $validated['months_count'],
             'payment_date' => $validated['status'] === 'paid' ? ($validated['payment_date'] ?? now()) : now(),
             'payment_method' => $validated['payment_method'],
             'period_start' => $periodStart,
@@ -97,11 +123,21 @@ class PaymentController extends Controller
     {
         $validated = $request->validate([
             'payment_date' => 'required|date',
-            'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money',
+            'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money,balance',
         ]);
 
         if ($payment->status === 'paid') {
             return back()->with('error', 'Cette facture est déjà payée.');
+        }
+
+        $rental = $payment->rental->load('tenant');
+
+        if ($validated['payment_method'] === 'balance') {
+            if ($rental->tenant->balance < $payment->amount) {
+                return back()->with('error', 'Le solde du locataire est insuffisant.');
+            }
+
+            $rental->tenant->decrement('balance', $payment->amount);
         }
 
         $payment->update([
@@ -116,34 +152,66 @@ class PaymentController extends Controller
         return back()->with('success', 'La facture a été marquée comme payée.');
     }
 
+    public function addAdvance(Request $request)
+    {
+        $validated = $request->validate([
+            'rental_id' => 'required|exists:rentals,id',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money',
+            'notes' => 'nullable|string',
+        ]);
+
+        $rental = Rental::with('tenant')->findOrFail($validated['rental_id']);
+
+        $payment = Payment::create([
+            'rental_id' => $rental->id,
+            'amount' => $validated['amount'],
+            'months_count' => 0,
+            'payment_date' => $validated['payment_date'],
+            'payment_method' => $validated['payment_method'],
+            'type' => 'advance',
+            'status' => 'paid',
+            'is_advance_payment' => true,
+            'invoice_number' => 'ADV-'.strtoupper(uniqid('', true)),
+            'notes' => $validated['notes'] ?? 'Avance sur compte',
+        ]);
+
+        $rental->tenant->increment('balance', $validated['amount']);
+
+        return back()->with('success', 'Avance enregistrée avec succès.');
+    }
+
+    public function statement(Rental $rental)
+    {
+        $rental->load(['tenant', 'property', 'payments' => function ($query) {
+            $query->orderBy('payment_date', 'asc')->orderBy('created_at', 'asc');
+        }]);
+
+        $organization = Organization::first();
+
+        return Inertia::render('rentals/statement', [
+            'rental' => $rental,
+            'organization' => $organization,
+        ]);
+    }
+
     /**
      * Met à jour la date de prochain paiement en fonction du total payé.
      */
     public function updateRentalNextPaymentDate(Rental $rental)
     {
         // On commence par la date de début de la location
-        $currentDate = $rental->start_date;
+        $currentDate = Carbon::parse($rental->start_date);
 
-        // Total de tous les paiements "payés"
-        $totalPaid = Payment::where('rental_id', $rental->id)
+        // Total des mois payés
+        $totalMonthsPaid = Payment::where('rental_id', $rental->id)
             ->where('status', 'paid')
             ->where('type', 'rent')
-            ->sum('amount');
-
-        $rentAmount = $rental->rent_amount;
-
-        if ($rentAmount <= 0) {
-            return;
-        }
-
-        // On avance la date tant que le total payé couvre le loyer des périodes successives
-        while ($totalPaid >= $rentAmount) {
-            $totalPaid -= $rentAmount;
-            $currentDate = $this->calculateNextPaymentDate($currentDate, $rental->payment_frequency);
-        }
+            ->sum('months_count');
 
         $rental->update([
-            'next_payment_date' => $currentDate,
+            'next_payment_date' => $currentDate->addMonths($totalMonthsPaid),
         ]);
     }
 

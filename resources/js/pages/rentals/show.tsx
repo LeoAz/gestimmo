@@ -51,6 +51,7 @@ interface Rental {
       first_name: string
       last_name: string
       phone: string
+      balance: string
   }
   payments: Payment[]
 }
@@ -72,6 +73,16 @@ export default function Show({ rental }: Props) {
   })
 
   const [selectedPendingPayment, setSelectedPendingPayment] = React.useState<Payment | null>(null)
+  const [showAdvanceDialog, setShowAdvanceDialog] = React.useState(false)
+
+  const advanceForm = useForm({
+    rental_id: rental.id,
+    amount: "",
+    payment_date: new Date(),
+    payment_method: "cash",
+    notes: "Avance sur compte",
+  })
+
   const markAsPaidForm = useForm({
     payment_date: new Date(),
     payment_method: "cash",
@@ -106,6 +117,21 @@ export default function Show({ rental }: Props) {
       onSuccess: () => {
         toast.success("Facture marquée comme payée")
         setSelectedPendingPayment(null)
+      },
+    })
+  }
+
+  const handleSubmitAdvance = (e: React.FormEvent) => {
+    e.preventDefault()
+    advanceForm.post("/payments/advance", {
+      transform: (data) => ({
+        ...data,
+        payment_date: format(data.payment_date, "yyyy-MM-dd"),
+      }),
+      onSuccess: () => {
+        toast.success("Avance enregistrée avec succès")
+        setShowAdvanceDialog(false)
+        advanceForm.reset()
       },
     })
   }
@@ -161,7 +187,8 @@ export default function Show({ rental }: Props) {
            {row.payment_method && (
               <div className="text-muted-foreground italic">
                 {row.payment_method === 'cash' ? 'Espèces' :
-                 row.payment_method === 'bank_transfer' ? 'Virement' : 'Mobile Money'}
+                 row.payment_method === 'bank_transfer' ? 'Virement' :
+                 row.payment_method === 'balance' ? 'Solde/Avance' : 'Mobile Money'}
               </div>
             )}
         </div>
@@ -237,7 +264,7 @@ export default function Show({ rental }: Props) {
           <div className="lg:col-span-8 space-y-10">
 
             {/* Quick Stats / Info Cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
                 <div className="rounded-xl border bg-card p-4 space-y-1">
                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Loyer Mensuel</p>
                    <p className="text-2xl font-bold">{formatCurrency(rental.rent_amount)}</p>
@@ -245,6 +272,10 @@ export default function Show({ rental }: Props) {
                 <div className="rounded-xl border bg-card p-4 space-y-1">
                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Caution versée</p>
                    <p className="text-2xl font-bold">{formatCurrency(rental.deposit_amount)}</p>
+                </div>
+                <div className="rounded-xl border bg-primary/5 border-primary/20 p-4 space-y-1">
+                   <p className="text-xs font-semibold text-primary uppercase tracking-wider">Solde Avance</p>
+                   <p className="text-2xl font-bold text-primary">{formatCurrency(rental.tenant.balance)}</p>
                 </div>
                 <div className={cn(
                   "rounded-xl border p-4 space-y-1 transition-colors",
@@ -331,6 +362,9 @@ export default function Show({ rental }: Props) {
                             <SelectItem value="cash">Espèces</SelectItem>
                             <SelectItem value="bank_transfer">Virement Bancaire</SelectItem>
                             <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                            <SelectItem value="balance" disabled={Number(rental.tenant.balance) <= 0}>
+                              Solde disponible ({formatCurrency(rental.tenant.balance)})
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -391,11 +425,25 @@ export default function Show({ rental }: Props) {
                     <p className="text-sm text-muted-foreground">{rental.tenant.phone}</p>
                   </div>
                   <Separator />
-                  <Button variant="outline" className="w-full rounded-full" asChild>
-                    <Link href={`/tenants/${rental.tenant.id}`}>
-                      Profil complet du locataire
-                    </Link>
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button variant="outline" className="w-full rounded-full" asChild>
+                      <Link href={`/tenants/${rental.tenant.id}`}>
+                        Profil complet du locataire
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="w-full rounded-full flex items-center gap-2"
+                      onClick={() => setShowAdvanceDialog(true)}
+                    >
+                      <CreditCard className="h-4 w-4" /> Encaisser une avance
+                    </Button>
+                    <Button variant="ghost" className="w-full rounded-full flex items-center gap-2" asChild>
+                      <a href={`/rentals/${rental.id}/statement`} target="_blank">
+                        <Printer className="h-4 w-4" /> Relevé de compte
+                      </a>
+                    </Button>
+                  </div>
                </div>
             </div>
 
@@ -485,11 +533,88 @@ export default function Show({ rental }: Props) {
                   <SelectItem value="cash">Espèces</SelectItem>
                   <SelectItem value="bank_transfer">Virement Bancaire</SelectItem>
                   <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="balance" disabled={Number(rental.tenant.balance) < Number(selectedPendingPayment?.amount)}>
+                    Utiliser le solde ({formatCurrency(rental.tenant.balance)})
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={markAsPaidForm.processing}>Confirmer le règlement</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAdvanceDialog} onOpenChange={setShowAdvanceDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Encaisser une avance</DialogTitle>
+            <DialogDescription>
+              Créditez le compte du locataire pour de futurs paiements.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitAdvance} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="advance_amount">Montant de l'avance (XOF)</Label>
+              <Input
+                id="advance_amount"
+                type="number"
+                value={advanceForm.data.amount}
+                onChange={(e) => advanceForm.setData("amount", e.target.value)}
+                required
+                className="h-11 font-bold"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="advance_date">Date de réception</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !advanceForm.data.payment_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {advanceForm.data.payment_date ? format(advanceForm.data.payment_date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={advanceForm.data.payment_date}
+                    onSelect={(date) => date && advanceForm.setData("payment_date", date)}
+                    initialFocus
+                    locale={fr}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="advance_method">Moyen de règlement</Label>
+              <Select value={advanceForm.data.payment_method} onValueChange={(value) => advanceForm.setData("payment_method", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Moyen de paiement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Espèces</SelectItem>
+                  <SelectItem value="bank_transfer">Virement Bancaire</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="advance_notes">Notes</Label>
+              <Input
+                id="advance_notes"
+                value={advanceForm.data.notes}
+                onChange={(e) => advanceForm.setData("notes", e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={advanceForm.processing}>Enregistrer l'avance</Button>
             </DialogFooter>
           </form>
         </DialogContent>

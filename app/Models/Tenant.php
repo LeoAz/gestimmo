@@ -18,6 +18,11 @@ class Tenant extends Model
         'address',
         'photo',
         'id_card',
+        'balance',
+    ];
+
+    protected $casts = [
+        'balance' => 'decimal:2',
     ];
 
     public function rentals()

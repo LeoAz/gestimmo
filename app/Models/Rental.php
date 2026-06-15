@@ -18,6 +18,7 @@ class Rental extends Model
         'end_date',
         'status',
         'payment_frequency',
+        'billing_cycle',
         'next_payment_date',
     ];
 
@@ -48,6 +49,10 @@ class Rental extends Model
                     $rental->property->update(['status' => 'rented']);
                 }
             }
+        });
+
+        static::deleted(function (Rental $rental) {
+            $rental->property->update(['status' => 'available']);
         });
     }
 

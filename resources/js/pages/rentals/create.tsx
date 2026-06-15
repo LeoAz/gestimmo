@@ -78,7 +78,9 @@ export default function Create({ categories, properties, buildings, tenants }: P
     deposit_amount: "",
     rent_amount: "",
     payment_frequency: "monthly",
+    billing_cycle: "monthly",
     start_date: new Date(),
+    end_date: null as Date | null,
   })
 
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string>("")
@@ -98,6 +100,7 @@ export default function Create({ categories, properties, buildings, tenants }: P
         ...data,
         tenant_id: data.tenant_id === "new" ? "" : data.tenant_id,
         start_date: format(data.start_date, "yyyy-MM-dd"),
+        end_date: data.end_date ? format(data.end_date, "yyyy-MM-dd") : null,
       }),
       onSuccess: () => {
         toast.success("Location enregistrée avec succès")
@@ -362,7 +365,7 @@ export default function Create({ categories, properties, buildings, tenants }: P
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="payment_frequency">Fréquence de paiement</Label>
+                  <Label htmlFor="payment_frequency">Mode de paiement (Récurrence)</Label>
                   <Select
                     value={data.payment_frequency}
                     onValueChange={(value) => setData("payment_frequency", value)}
@@ -374,10 +377,32 @@ export default function Create({ categories, properties, buildings, tenants }: P
                       <SelectItem value="monthly">Mensuel</SelectItem>
                       <SelectItem value="quarterly">Trimestriel</SelectItem>
                       <SelectItem value="semiannual">Semestriel</SelectItem>
+                      <SelectItem value="annual">Annuel</SelectItem>
                     </SelectContent>
                   </Select>
                   <InputError message={errors.payment_frequency} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="billing_cycle">Mode de facturation</Label>
+                  <Select
+                    value={data.billing_cycle}
+                    onValueChange={(value) => setData("billing_cycle", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir le cycle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Mensuel</SelectItem>
+                      <SelectItem value="quarterly">Trimestriel</SelectItem>
+                      <SelectItem value="semiannual">Semestriel</SelectItem>
+                      <SelectItem value="annual">Annuel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <InputError message={errors.billing_cycle} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="start_date">Date de début</Label>
                   <Popover>
@@ -404,6 +429,33 @@ export default function Create({ categories, properties, buildings, tenants }: P
                     </PopoverContent>
                   </Popover>
                   <InputError message={errors.start_date} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">Date de fin</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !data.end_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {data.end_date ? format(data.end_date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={data.end_date || undefined}
+                        onSelect={(date) => setData("end_date", date || null)}
+                        initialFocus
+                        locale={fr}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <InputError message={errors.end_date} />
                 </div>
               </div>
             </CardContent>

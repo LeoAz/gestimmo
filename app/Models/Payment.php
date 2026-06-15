@@ -12,6 +12,7 @@ class Payment extends Model
     protected $fillable = [
         'rental_id',
         'amount',
+        'months_count',
         'payment_date',
         'payment_method',
         'period_start',
@@ -20,6 +21,7 @@ class Payment extends Model
         'status',
         'invoice_number',
         'notes',
+        'is_advance_payment',
     ];
 
     protected $casts = [
@@ -27,6 +29,7 @@ class Payment extends Model
         'payment_date' => 'date',
         'period_start' => 'date',
         'period_end' => 'date',
+        'is_advance_payment' => 'boolean',
     ];
 
     public function rental()

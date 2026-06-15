@@ -1,6 +1,7 @@
 import { Head, Link } from "@inertiajs/react"
 import { format } from "date-fns"
-import { Download, Eye, Printer } from "lucide-react"
+import { fr } from "date-fns/locale"
+import { Download, Eye, Printer, AlertCircle, Calendar, History } from "lucide-react"
 import * as React from "react"
 
 import { index as paymentsIndex } from "@/actions/App/Http/Controllers/PaymentController"
@@ -18,16 +19,32 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import AppLayout from "@/layouts/app-layout"
+
+interface Rental {
+    id: number
+    tenant: {
+        first_name: string
+        last_name: string
+    }
+    property: {
+        title: string
+    }
+    next_payment_date: string
+    rent_amount: string
+}
 
 interface Props {
     payments: Payment[]
+    futurePayments: Rental[]
+    debts: Payment[]
     filters: {
         search?: string
         status?: string
     }
 }
-export default function Index({ payments }: Props) {
+export default function Index({ payments, futurePayments, debts }: Props) {
     const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null)
     const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
 
@@ -75,30 +92,6 @@ export default function Index({ payments }: Props) {
             sortKey: "payment_date"
         },
         {
-            header: "Moyen",
-            accessor: (row: Payment) => {
-                if (!row.payment_method) {
-                    return "-"
-                }
-
-                const methods = {
-                    cash: "Espèces",
-                    bank_transfer: "Virement",
-                    mobile_money: "Mobile Money"
-                }
-
-                return methods[row.payment_method as keyof typeof methods] || row.payment_method
-            }
-        },
-        {
-            header: "Période",
-            accessor: (row: Payment) => (
-                <span className="text-xs text-muted-foreground">
-                    {format(new Date(row.period_start), "dd/MM/yy")} au {format(new Date(row.period_end), "dd/MM/yy")}
-                </span>
-            )
-        },
-        {
             header: "Actions",
             accessor: (row: Payment) => (
                 <div className="flex items-center gap-2">
@@ -120,23 +113,82 @@ export default function Index({ payments }: Props) {
         },
     ]
 
+    const futureColumns = [
+        {
+            header: "Locataire",
+            accessor: (row: Rental) => `${row.tenant.first_name} ${row.tenant.last_name}`
+        },
+        {
+            header: "Bien",
+            accessor: (row: Rental) => row.property.title
+        },
+        {
+            header: "Montant prévu",
+            accessor: (row: Rental) => formatCurrency(row.rent_amount)
+        },
+        {
+            header: "Date prévue",
+            accessor: (row: Rental) => format(new Date(row.next_payment_date), "dd/MM/yyyy", { locale: fr })
+        },
+        {
+            header: "Actions",
+            accessor: (row: Rental) => (
+                <Button variant="ghost" size="icon" asChild title="Gérer la location">
+                    <Link href={rentalsShow({ rental: row.id })}>
+                        <Eye className="h-4 w-4" />
+                    </Link>
+                </Button>
+            ),
+        },
+    ]
+
     return (
         <>
-            <Head title="Factures & Reçus" />
+            <Head title="Paiements & Créances" />
 
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <div className="flex items-center justify-between">
-                    <Heading
-                        title="Factures & Reçus"
-                        description="Historique de tous les paiements et factures générées."
-                    />
-                </div>
-
-                <DataTable
-                    data={payments}
-                    columns={columns}
-                    searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
+                <Heading
+                    title="Paiements & Créances"
+                    description="Gérez vos paiements, créances à recouvrer et futurs paiements."
                 />
+
+                <Tabs defaultValue="history" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+                        <TabsTrigger value="history" className="flex items-center gap-2">
+                            <History className="h-4 w-4" /> Historique
+                        </TabsTrigger>
+                        <TabsTrigger value="debts" className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-destructive" /> Créances
+                        </TabsTrigger>
+                        <TabsTrigger value="future" className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" /> Futurs
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="history" className="mt-4">
+                        <DataTable
+                            data={payments}
+                            columns={columns}
+                            searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="debts" className="mt-4">
+                        <DataTable
+                            data={debts}
+                            columns={columns}
+                            emptyMessage="Aucune créance en attente."
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="future" className="mt-4">
+                        <DataTable
+                            data={futurePayments}
+                            columns={futureColumns}
+                            emptyMessage="Aucun paiement prévu prochainement."
+                        />
+                    </TabsContent>
+                </Tabs>
 
                 <Dialog open={!!selectedPayment} onOpenChange={(open) => !open && setSelectedPayment(null)}>
                     <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">

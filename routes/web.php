@@ -22,14 +22,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('property-categories', PropertyCategoryController::class);
     Route::resource('properties', PropertyController::class);
+    Route::post('properties/{property}/apartments', [PropertyController::class, 'addApartment'])->name('properties.apartments.store');
     Route::resource('rentals', RentalController::class);
     Route::resource('organizations', OrganizationController::class);
     Route::get('tenants', [TenantController::class, 'index'])->name('tenants.index');
     Route::get('tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::post('payments', [PaymentController::class, 'store'])->name('payments.store');
+    Route::post('payments/advance', [PaymentController::class, 'addAdvance'])->name('payments.advance');
     Route::patch('payments/{payment}/mark-as-paid', [PaymentController::class, 'markAsPaid'])->name('payments.mark-as-paid');
     Route::get('payments/{payment}/invoice', [PaymentController::class, 'invoice'])->name('payments.invoice');
+    Route::get('rentals/{rental}/statement', [PaymentController::class, 'statement'])->name('rentals.statement');
 
     Route::get('deposits', [DepositController::class, 'index'])->name('deposits.index');
 

@@ -78,7 +78,8 @@ class RentalController extends Controller
                 'tenant_id_card' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
                 'deposit_amount' => 'nullable|numeric|min:0',
                 'rent_amount' => 'nullable|numeric|min:0',
-                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual',
+                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual,annual',
+                'billing_cycle' => 'required|string|in:monthly,quarterly,semiannual,annual',
                 'start_date' => 'required|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
             ]);
@@ -109,9 +110,10 @@ class RentalController extends Controller
                 'deposit_amount' => $validated['deposit_amount'] ?? 0,
                 'rent_amount' => $validated['rent_amount'] ?? 0,
                 'payment_frequency' => $validated['payment_frequency'] ?? 'monthly',
+                'billing_cycle' => $validated['billing_cycle'] ?? 'monthly',
                 'start_date' => $validated['start_date'],
                 'end_date' => $validated['end_date'] ?? null,
-                'next_payment_date' => $validated['start_date'], // Le premier paiement est dû à la date de début
+                'next_payment_date' => $validated['start_date'],
                 'status' => 'active',
             ]);
 
@@ -144,7 +146,7 @@ class RentalController extends Controller
     {
         return Inertia::render('rentals/show', [
             'rental' => $rental->load(['property', 'tenant', 'payments' => function ($query) {
-                $query->latest();
+                $query->orderBy('payment_date', 'desc')->orderBy('created_at', 'desc');
             }]),
         ]);
     }
@@ -187,7 +189,8 @@ class RentalController extends Controller
                 'tenant_id' => 'required|exists:tenants,id',
                 'deposit_amount' => 'nullable|numeric|min:0',
                 'rent_amount' => 'nullable|numeric|min:0',
-                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual',
+                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual,annual',
+                'billing_cycle' => 'required|string|in:monthly,quarterly,semiannual,annual',
                 'start_date' => 'required|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
                 'status' => 'required|string|in:active,completed,cancelled',

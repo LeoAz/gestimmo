@@ -47,39 +47,21 @@ class PropertyController extends Controller
             'price' => 'nullable|numeric',
             'type' => 'nullable|string|max:255',
             'floor_number' => 'nullable|integer',
-            'surface_area' => 'nullable|numeric',
             'rooms_count' => 'nullable|integer',
             'bedrooms_count' => 'nullable|integer',
             'bathrooms_count' => 'nullable|integer',
             'living_rooms_count' => 'nullable|integer',
+            'balconies_count' => 'nullable|integer',
+            'kitchens_count' => 'nullable|integer',
             'has_kitchen' => 'nullable|boolean',
             'has_solar_panels' => 'nullable|boolean',
             'has_generator' => 'nullable|boolean',
-            'status' => 'required|in:available,sold,rented',
-            'apartments' => 'nullable|array',
-            'apartments.*.title' => 'required|string|max:255',
-            'apartments.*.floor_number' => 'required|integer',
-            'apartments.*.price' => 'nullable|numeric',
-            'apartments.*.surface_area' => 'nullable|numeric',
-            'apartments.*.rooms_count' => 'nullable|integer',
-            'apartments.*.bedrooms_count' => 'nullable|integer',
-            'apartments.*.bathrooms_count' => 'nullable|integer',
-            'apartments.*.living_rooms_count' => 'nullable|integer',
-            'apartments.*.has_kitchen' => 'nullable|boolean',
+            'status' => 'nullable|in:available,sold,rented',
         ]);
 
         $property = Property::create($validated);
 
-        if ($request->has('apartments')) {
-            foreach ($request->apartments as $apartmentData) {
-                $property->apartments()->create(array_merge($apartmentData, [
-                    'property_category_id' => PropertyCategory::where('slug', 'appartement')->first()?->id ?? $property->property_category_id,
-                    'status' => 'available',
-                ]));
-            }
-        }
-
-        return redirect()->route('properties.index')
+        return redirect()->route('properties.show', $property)
             ->with('success', 'Bien immobilier créé avec succès.');
     }
 
@@ -98,19 +80,10 @@ class PropertyController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $stats = [
-            'total_revenue' => $rentals->flatMap->payments->sum('amount'),
-            'active_rentals_count' => $rentals->where('status', 'active')->count(),
-            'total_rentals_count' => $rentals->count(),
-            'monthly_revenue' => $rentals->flatMap->payments
-                ->where('payment_date', '>=', now()->startOfMonth())
-                ->sum('amount'),
-        ];
-
         return Inertia::render('properties/show', [
             'property' => $property,
             'rentals' => $rentals,
-            'stats' => $stats,
+            'categories' => PropertyCategory::all(),
         ]);
     }
 
@@ -141,48 +114,50 @@ class PropertyController extends Controller
             'price' => 'nullable|numeric',
             'type' => 'nullable|string|max:255',
             'floor_number' => 'nullable|integer',
-            'surface_area' => 'nullable|numeric',
             'rooms_count' => 'nullable|integer',
             'bedrooms_count' => 'nullable|integer',
             'bathrooms_count' => 'nullable|integer',
             'living_rooms_count' => 'nullable|integer',
+            'balconies_count' => 'nullable|integer',
+            'kitchens_count' => 'nullable|integer',
             'has_kitchen' => 'nullable|boolean',
             'has_solar_panels' => 'nullable|boolean',
             'has_generator' => 'nullable|boolean',
-            'status' => 'required|in:available,sold,rented',
-            'apartments' => 'nullable|array',
-            'apartments.*.id' => 'nullable|exists:properties,id',
-            'apartments.*.title' => 'required|string|max:255',
-            'apartments.*.floor_number' => 'required|integer',
-            'apartments.*.price' => 'nullable|numeric',
-            'apartments.*.surface_area' => 'nullable|numeric',
-            'apartments.*.rooms_count' => 'nullable|integer',
-            'apartments.*.bedrooms_count' => 'nullable|integer',
-            'apartments.*.bathrooms_count' => 'nullable|integer',
-            'apartments.*.living_rooms_count' => 'nullable|integer',
-            'apartments.*.has_kitchen' => 'nullable|boolean',
+            'status' => 'nullable|in:available,sold,rented',
         ]);
 
         $property->update($validated);
 
-        if ($request->has('apartments')) {
-            $apartmentIds = collect($request->apartments)->pluck('id')->filter()->toArray();
-            $property->apartments()->whereNotIn('id', $apartmentIds)->delete();
-
-            foreach ($request->apartments as $apartmentData) {
-                if (isset($apartmentData['id'])) {
-                    $property->apartments()->where('id', $apartmentData['id'])->update($apartmentData);
-                } else {
-                    $property->apartments()->create(array_merge($apartmentData, [
-                        'property_category_id' => PropertyCategory::where('slug', 'appartement')->first()?->id ?? $property->property_category_id,
-                        'status' => 'available',
-                    ]));
-                }
-            }
-        }
-
-        return redirect()->route('properties.index')
+        return redirect()->route('properties.show', $property)
             ->with('success', 'Bien immobilier mis à jour avec succès.');
+    }
+
+    /**
+     * Add an apartment to a property.
+     */
+    public function addApartment(Request $request, Property $property)
+    {
+        $this->sanitizePropertyData($request);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'floor_number' => 'required|integer',
+            'price' => 'nullable|numeric',
+            'rooms_count' => 'nullable|integer',
+            'bedrooms_count' => 'nullable|integer',
+            'bathrooms_count' => 'nullable|integer',
+            'living_rooms_count' => 'nullable|integer',
+            'balconies_count' => 'nullable|integer',
+            'kitchens_count' => 'nullable|integer',
+            'has_kitchen' => 'nullable|boolean',
+            'status' => 'required|in:available,sold,rented',
+        ]);
+
+        $property->apartments()->create(array_merge($validated, [
+            'property_category_id' => PropertyCategory::where('slug', 'appartement')->first()?->id ?? $property->property_category_id,
+        ]));
+
+        return back()->with('success', 'Appartement ajouté avec succès.');
     }
 
     /**
@@ -202,8 +177,9 @@ class PropertyController extends Controller
     private function sanitizePropertyData(Request $request): void
     {
         $numericFields = [
-            'price', 'floor_number', 'surface_area', 'rooms_count',
+            'price', 'floor_number', 'rooms_count',
             'bedrooms_count', 'bathrooms_count', 'living_rooms_count',
+            'balconies_count', 'kitchens_count',
         ];
 
         foreach ($numericFields as $field) {

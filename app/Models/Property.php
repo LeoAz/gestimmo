@@ -24,10 +24,13 @@ class Property extends Model
         'bedrooms_count',
         'bathrooms_count',
         'living_rooms_count',
+        'balconies_count',
+        'kitchens_count',
         'has_kitchen',
         'has_solar_panels',
         'has_generator',
         'status',
+        'surface_area',
     ];
 
     protected $casts = [
@@ -61,29 +64,5 @@ class Property extends Model
     public function rentals()
     {
         return $this->hasMany(Rental::class);
-    }
-
-    /**
-     * Boot the model.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::updated(function (Property $property) {
-            // Si c'est un appartement (il a un parent)
-            if ($property->parent_id) {
-                $parent = $property->parent;
-                if ($parent) {
-                    $allRented = $parent->apartments()->where('status', '!=', 'rented')->count() === 0;
-
-                    if ($allRented) {
-                        $parent->update(['status' => 'rented']);
-                    } else {
-                        $parent->update(['status' => 'available']);
-                    }
-                }
-            }
-        });
     }
 }
