@@ -99,6 +99,7 @@ interface Property {
   has_solar_panels: boolean
   has_generator: boolean
   status: 'available' | 'sold' | 'rented'
+  parent_id: number | null
   category: {
     id: number
     name: string
@@ -308,70 +309,72 @@ export default function Show({ property, rentals, categories }: Props) {
             )}
 
             {/* Units Section */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-2">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-blue-500" />
-                  Unités & Appartements
-                </h2>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{property.apartments.length} unités</Badge>
-                  <Button size="sm" onClick={() => setIsApartmentModalOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter
-                  </Button>
+            {property.parent_id === null && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-blue-500" />
+                    Unités & Appartements
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{property.apartments.length} unités</Badge>
+                    <Button size="sm" onClick={() => setIsApartmentModalOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Ajouter
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="grid gap-3">
-                {property.apartments.length > 0 ? (
-                  property.apartments.map((apt) => (
-                    <div key={apt.id} className="group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/30 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                           <Home className="h-5 w-5" />
+                <div className="grid gap-3">
+                  {property.apartments.length > 0 ? (
+                    property.apartments.map((apt) => (
+                      <div key={apt.id} className="group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/30 transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                             <Home className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-semibold">{apt.title}</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                              <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> Étage {apt.floor_number}</span>
+                              <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {apt.bedrooms_count || 0} ch</span>
+                              <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> {apt.living_rooms_count || 0} sal</span>
+                              <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> {apt.balconies_count || 0} bal</span>
+                              <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> {apt.kitchens_count || 0} cuis</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{apt.title}</p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                            <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> Étage {apt.floor_number}</span>
-                            <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {apt.bedrooms_count || 0} ch</span>
-                            <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> {apt.living_rooms_count || 0} sal</span>
-                            <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> {apt.balconies_count || 0} bal</span>
-                            <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> {apt.kitchens_count || 0} cuis</span>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="font-bold">{formatCurrency(apt.price)}</p>
+                            <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px] h-5 px-1.5">
+                              {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="icon" asChild title="Voir détails">
+                               <Link href={`/properties/${apt.id}`}>
+                                  <Eye className="h-4 w-4" />
+                               </Link>
+                            </Button>
+                            {apt.status === 'available' && (
+                              <Button variant="ghost" size="icon" asChild title="Nouvelle location">
+                                <Link href={`/rentals/create?property_id=${apt.id}`}>
+                                  <KeyIcon className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <p className="font-bold">{formatCurrency(apt.price)}</p>
-                          <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px] h-5 px-1.5">
-                            {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" asChild title="Voir détails">
-                             <Link href={`/properties/${apt.id}`}>
-                                <Eye className="h-4 w-4" />
-                             </Link>
-                          </Button>
-                          {apt.status === 'available' && (
-                            <Button variant="ghost" size="icon" asChild title="Nouvelle location">
-                              <Link href={`/rentals/create?property_id=${apt.id}`}>
-                                <KeyIcon className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center py-8 text-muted-foreground italic border rounded-lg border-dashed">
-                    Aucun appartement enregistré pour ce bien.
-                  </p>
-                )}
-              </div>
-            </section>
+                    ))
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground italic border rounded-lg border-dashed">
+                      Aucun appartement enregistré pour ce bien.
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* Payment History Section */}
             <section className="space-y-4">

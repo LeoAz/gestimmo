@@ -166,8 +166,8 @@ export default function Index({ rentals }: Props) {
       </div>
 
       <DeleteConfirmDialog
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
         url={`/rentals/${selectedRental?.id}`}
         title="Supprimer la location"
         description="Êtes-vous sûr de vouloir supprimer cette location ? Cette action est irréversible et le bien immobilier sera remis en statut disponible."

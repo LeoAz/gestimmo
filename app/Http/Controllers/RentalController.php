@@ -118,7 +118,16 @@ class RentalController extends Controller
             ]);
 
             // Mettre à jour le statut du bien
-            Property::where('id', $validated['property_id'])->update(['status' => 'rented']);
+            $property = Property::find($validated['property_id']);
+            $property->update(['status' => 'rented']);
+
+            // Si c'est un appartement, mettre à jour le statut du bâtiment parent si nécessaire
+            if ($property->parent_id) {
+                $parent = Property::find($property->parent_id);
+                if ($parent) {
+                    $parent->update(['status' => 'rented']);
+                }
+            }
 
             // Créer automatiquement le premier paiement (caution)
             if ($rental->deposit_amount > 0) {
@@ -222,6 +231,14 @@ class RentalController extends Controller
 
             // Mettre à jour le statut du bien
             $property->update(['status' => 'available']);
+
+            // Si c'est un appartement, mettre à jour le statut du bâtiment parent
+            if ($property->parent_id) {
+                $parent = Property::find($property->parent_id);
+                if ($parent) {
+                    $parent->update(['status' => 'available']);
+                }
+            }
 
             return redirect()->route('rentals.index')
                 ->with('success', 'Location supprimée avec succès.');
