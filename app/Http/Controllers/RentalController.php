@@ -34,7 +34,7 @@ class RentalController extends Controller
         }
 
         return Inertia::render('rentals/index', [
-            'rentals' => $query->latest()->get(),
+            'rentals' => $query->orderByDesc('id')->get(),
             'filters' => $request->only(['search', 'status']),
         ]);
     }
@@ -46,6 +46,9 @@ class RentalController extends Controller
         $properties = Property::with('category')
             ->where('status', 'available')
             ->whereNull('parent_id')
+            ->whereDoesntHave('category', function ($query) {
+                $query->whereIn('slug', ['immeuble', 'batiment']);
+            })
             ->get();
 
         $buildings = Property::whereHas('category', function ($query) {
@@ -125,7 +128,11 @@ class RentalController extends Controller
             if ($property->parent_id) {
                 $parent = Property::find($property->parent_id);
                 if ($parent) {
-                    $parent->update(['status' => 'rented']);
+                    // Le bâtiment est considéré comme "loué" si tous ses appartements le sont
+                    $allRented = ! $parent->apartments()->where('status', '!=', 'rented')->exists();
+                    if ($allRented) {
+                        $parent->update(['status' => 'rented']);
+                    }
                 }
             }
 
@@ -236,7 +243,11 @@ class RentalController extends Controller
             if ($property->parent_id) {
                 $parent = Property::find($property->parent_id);
                 if ($parent) {
-                    $parent->update(['status' => 'available']);
+                    // Si au moins un appartement est disponible, le bâtiment est disponible
+                    $anyAvailable = $parent->apartments()->where('status', 'available')->exists();
+                    if ($anyAvailable) {
+                        $parent->update(['status' => 'available']);
+                    }
                 }
             }
 

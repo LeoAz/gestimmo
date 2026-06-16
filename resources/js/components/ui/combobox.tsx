@@ -68,11 +68,12 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={option.value}
                   onSelect={() => {
                     onValueChange(option.value === value ? "" : option.value)
                     setOpen(false)
                   }}
+                  keywords={[option.label]}
                 >
                   <Check
                     className={cn(

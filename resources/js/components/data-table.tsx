@@ -109,11 +109,13 @@ export function DataTable<T>({
 
   // Pagination
   const totalPages = Math.ceil(sortedData.length / itemsPerPage)
+
   const paginatedData = React.useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
+    const safeCurrentPage = Math.min(Math.max(1, currentPage), Math.max(1, totalPages));
+    const start = (safeCurrentPage - 1) * itemsPerPage
 
     return sortedData.slice(start, start + itemsPerPage)
-  }, [sortedData, currentPage])
+  }, [sortedData, currentPage, totalPages])
 
   const handleSort = (key: keyof T) => {
     let direction: "asc" | "desc" = "asc"

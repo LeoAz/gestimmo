@@ -134,6 +134,10 @@ export default function Create({ categories, properties, buildings, tenants }: P
                   ]}
                   value={data.tenant_id}
                   onValueChange={(value) => {
+                    if (value === data.tenant_id) {
+                      return;
+                    }
+
                     setData("tenant_id", value);
 
                     if (value && value !== "new") {
