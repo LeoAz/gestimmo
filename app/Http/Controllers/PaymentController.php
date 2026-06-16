@@ -47,11 +47,18 @@ class PaymentController extends Controller
             ->where('type', 'rent')
             ->get();
 
+        $organization = Organization::first();
+
+        if ($organization && $organization->logo) {
+            $organization->logo_url = asset('storage/'.$organization->logo);
+        }
+
         return Inertia::render('payments/index', [
             'payments' => $payments,
             'futurePayments' => $futurePayments,
             'debts' => $debts,
             'filters' => $request->only(['search', 'status']),
+            'organization' => $organization,
         ]);
     }
 

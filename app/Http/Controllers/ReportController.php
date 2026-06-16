@@ -6,6 +6,7 @@ use App\Exports\AvailabilityExport;
 use App\Exports\ForecastExport;
 use App\Exports\LatePaymentsExport;
 use App\Exports\RevenueExport;
+use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\Rental;
@@ -58,10 +59,12 @@ class ReportController extends Controller
         }
 
         if ($request->export === 'pdf') {
+            $organization = Organization::first();
             $pdf = Pdf::loadView('reports.pdf.late-payments', [
                 'data' => $data,
                 'filters' => $request->all(),
                 'title' => 'Rapport des Retards de Paiement',
+                'organization' => $organization,
             ]);
 
             return $pdf->download('retards-paiement.pdf');
@@ -106,10 +109,12 @@ class ReportController extends Controller
         }
 
         if ($request->export === 'pdf') {
+            $organization = Organization::first();
             $pdf = Pdf::loadView('reports.pdf.revenue', [
                 'data' => $data,
                 'filters' => $request->all(),
                 'title' => 'Rapport du Chiffre d\'Affaires',
+                'organization' => $organization,
             ]);
 
             return $pdf->download('chiffre-affaires.pdf');
@@ -135,10 +140,12 @@ class ReportController extends Controller
         }
 
         if ($request->export === 'pdf') {
+            $organization = Organization::first();
             $pdf = Pdf::loadView('reports.pdf.availability', [
                 'data' => $data,
                 'filters' => $request->all(),
                 'title' => 'Rapport de Disponibilité des Biens',
+                'organization' => $organization,
             ]);
 
             return $pdf->download('disponibilite-biens.pdf');
@@ -194,10 +201,12 @@ class ReportController extends Controller
         }
 
         if ($request->export === 'pdf') {
+            $organization = Organization::first();
             $pdf = Pdf::loadView('reports.pdf.forecast', [
                 'data' => $data,
                 'filters' => $request->all(),
                 'title' => 'Rapport des Prévisions de Recouvrement',
+                'organization' => $organization,
             ]);
 
             return $pdf->download('previsions-recouvrement.pdf');

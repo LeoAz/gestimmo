@@ -43,8 +43,9 @@ interface Props {
         search?: string
         status?: string
     }
+    organization?: any
 }
-export default function Index({ payments, futurePayments, debts }: Props) {
+export default function Index({ payments, futurePayments, debts, organization }: Props) {
     const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null)
     const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
 
@@ -229,7 +230,7 @@ export default function Index({ payments, futurePayments, debts }: Props) {
                                 </div>
 
                                 <div className="border rounded-lg bg-white overflow-hidden shadow-sm">
-                                    <InvoiceView payment={selectedPayment} printMode={printMode} />
+                                    <InvoiceView payment={selectedPayment} printMode={printMode} organization={organization} />
                                 </div>
                                 <div className="flex justify-center mt-4 print:hidden">
                                     <Button asChild variant="link">

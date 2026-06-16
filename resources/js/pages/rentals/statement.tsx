@@ -45,6 +45,10 @@ interface Props {
     address: string | null
     phone: string | null
     email: string | null
+    tax_number?: string | null
+    registration_number?: string | null
+    city?: string | null
+    country?: string | null
     logo_url?: string | null
   } | null
 }
@@ -96,10 +100,19 @@ export default function Statement({ rental, organization }: Props) {
               )}
               <div>
                 <h1 className="text-2xl font-bold text-primary">{organization?.name || 'IMO-APP'}</h1>
-                <p className="text-sm text-muted-foreground">Gestion Immobilière</p>
+                <p className="text-sm text-muted-foreground">{organization?.name ? 'Gestion Immobilière' : 'Gestion Immobilière Moderne'}</p>
                 <div className="mt-4 text-xs space-y-1 text-muted-foreground">
-                  <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {organization?.address || 'Adresse de l\'agence'}</p>
-                  <p className="flex items-center gap-2"><Phone className="h-3 w-3" /> {organization?.phone || 'Contact agence'}</p>
+                  <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {organization?.address || '123 Rue de l\'Immobilier'}</p>
+                  <p className="flex items-center gap-2">
+                    <Phone className="h-3 w-3" />
+                    {organization?.phone || '+221 33 000 00 00'}
+                    {organization?.email ? ` | ${organization.email}` : ''}
+                  </p>
+                  <p>
+                    {organization?.city ? `${organization.city}, ${organization.country || ''}` : 'Dakar, Sénégal'}
+                  </p>
+                  {organization?.tax_number && <p className="mt-2 font-semibold text-gray-900">IFU: {organization.tax_number}</p>}
+                  {organization?.registration_number && <p className="font-semibold text-gray-900">RCCM: {organization.registration_number}</p>}
                 </div>
               </div>
             </div>

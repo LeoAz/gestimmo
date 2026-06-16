@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\PropertyCategory;
@@ -160,10 +161,17 @@ class RentalController extends Controller
 
     public function show(Rental $rental)
     {
+        $organization = Organization::first();
+
+        if ($organization && $organization->logo) {
+            $organization->logo_url = asset('storage/'.$organization->logo);
+        }
+
         return Inertia::render('rentals/show', [
             'rental' => $rental->load(['property', 'tenant', 'payments' => function ($query) {
                 $query->orderBy('payment_date', 'desc')->orderBy('created_at', 'desc');
             }]),
+            'organization' => $organization,
         ]);
     }
 

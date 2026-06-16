@@ -79,8 +79,20 @@
 </head>
 <body>
     <div class="header">
-        <h1>{{ $title }}</h1>
-        <p>Généré le {{ now()->format('d/m/Y H:i') }}</p>
+        @if(isset($organization) && $organization->logo)
+            <img src="{{ public_path('storage/' . $organization->logo) }}" style="height: 60px; margin-bottom: 10px;">
+        @endif
+        <h1>{{ $organization->name ?? 'IMO-APP' }}</h1>
+        <p>{{ $title }}</p>
+        <p style="font-size: 10px;">
+            @if(isset($organization))
+                {{ $organization->address }} {{ $organization->city }} {{ $organization->country }}<br>
+                Tél: {{ $organization->phone }} | Email: {{ $organization->email }}
+                @if($organization->tax_number) | IFU: {{ $organization->tax_number }} @endif
+            @else
+                Généré le {{ now()->format('d/m/Y H:i') }}
+            @endif
+        </p>
     </div>
 
     @if(!empty($filters))
@@ -95,7 +107,7 @@
     @yield('content')
 
     <div class="footer">
-        © {{ date('Y') }} IMO-APP - Rapport professionnel de gestion immobilière
+        © {{ date('Y') }} {{ $organization->name ?? 'IMO-APP' }} - Rapport professionnel de gestion immobilière
     </div>
 </body>
 </html>

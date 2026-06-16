@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { DataTable } from "@/components/data-table"
 import { FormAlert } from "@/components/form-alert"
+import { InvoiceView } from "@/components/invoice-view"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -58,9 +59,9 @@ interface Rental {
 
 interface Props {
   rental: Rental
+  organization?: any
 }
-
-export default function Show({ rental }: Props) {
+export default function Show({ rental, organization }: Props) {
   const { flash } = usePage<any>().props
   const pageErrors = usePage().props.errors
   const { data, setData, post, patch, processing, errors, reset } = useForm({
@@ -75,6 +76,8 @@ export default function Show({ rental }: Props) {
   })
 
   const [selectedPendingPayment, setSelectedPendingPayment] = React.useState<Payment | null>(null)
+  const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null)
+  const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
   const [showAdvanceDialog, setShowAdvanceDialog] = React.useState(false)
 
   const advanceForm = useForm({
@@ -211,10 +214,8 @@ export default function Show({ rental }: Props) {
               Payer
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-              <a href={`/payments/${row.id}/invoice`} target="_blank" rel="noreferrer">
-                  <Printer className="h-4 w-4" />
-              </a>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedPayment(row)}>
+              <Printer className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -696,6 +697,60 @@ export default function Show({ rental }: Props) {
               <Button type="submit" disabled={advanceForm.processing}>Enregistrer l'avance</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedPayment} onOpenChange={(open) => !open && setSelectedPayment(null)}>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="print:hidden">
+            <DialogTitle>Facture {selectedPayment?.invoice_number}</DialogTitle>
+            <DialogDescription>
+              Visualisation et impression de la facture.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPayment && (
+            <div className="mt-6 space-y-6">
+              <div className="flex justify-between items-center print:hidden">
+                <div className="flex gap-2 bg-muted p-1 rounded-lg border">
+                  <Button
+                    variant={printMode === 'standard' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setPrintMode('standard')}
+                  >
+                    Standard
+                  </Button>
+                  <Button
+                    variant={printMode === 'receipt' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setPrintMode('receipt')}
+                  >
+                    Ticket
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => window.print()} variant="outline" size="sm" className="flex items-center gap-2">
+                    <Printer className="h-4 w-4" /> Imprimer
+                  </Button>
+                </div>
+              </div>
+
+              <div className="border rounded-lg bg-white overflow-hidden shadow-sm">
+                <InvoiceView
+                  payment={{
+                    ...selectedPayment,
+                    rental: {
+                      ...rental,
+                      property: rental.property,
+                      tenant: rental.tenant
+                    }
+                  } as any}
+                  printMode={printMode}
+                  organization={organization}
+                />
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

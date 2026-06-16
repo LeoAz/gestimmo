@@ -1,5 +1,7 @@
 import { Link, router } from '@inertiajs/react';
-import { LogOut, Settings } from 'lucide-react';
+import { Building2, LogOut, Settings } from 'lucide-react';
+
+import { index as organizationIndex } from '@/actions/App/Http/Controllers/Settings/OrganizationController';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -42,6 +44,17 @@ export function UserMenuContent({ user }: Props) {
                     >
                         <Settings className="mr-2" />
                         Paramètres
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link
+                        className="block w-full cursor-pointer"
+                        href={organizationIndex()}
+                        prefetch
+                        onClick={cleanup}
+                    >
+                        <Building2 className="mr-2" />
+                        Organisation
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>

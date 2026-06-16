@@ -6,7 +6,6 @@ import { index as notificationsIndex } from '@/actions/App/Http/Controllers/Noti
 import { index as paymentsIndex } from '@/actions/App/Http/Controllers/PaymentController';
 import { index as propertyCategoriesIndex } from '@/actions/App/Http/Controllers/PropertyCategoryController';
 import { index as propertiesIndex } from '@/actions/App/Http/Controllers/PropertyController';
-import { index as organizationIndex } from '@/actions/App/Http/Controllers/Settings/OrganizationController';
 import { index as rentalsIndex } from '@/actions/App/Http/Controllers/RentalController';
 import { index as reportsIndex } from '@/actions/App/Http/Controllers/ReportController';
 import { index as tenantsIndex } from '@/actions/App/Http/Controllers/TenantController';
@@ -48,10 +47,6 @@ const mainNavItems: NavItem[] = [
             {
                 title: 'Biens immobiliers',
                 href: propertiesIndex(),
-            },
-            {
-                title: 'Organisations',
-                href: organizationIndex(),
             },
         ],
     },
