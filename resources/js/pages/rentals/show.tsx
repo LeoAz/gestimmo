@@ -65,7 +65,9 @@ export default function Show({ rental }: Props) {
   const pageErrors = usePage().props.errors
   const { data, setData, post, patch, processing, errors, reset } = useForm({
     rental_id: rental.id,
+    payment_id: "",
     amount: rental.rent_amount,
+    months_count: 1,
     payment_date: new Date(),
     payment_method: "cash",
     status: "paid",
@@ -93,11 +95,12 @@ export default function Show({ rental }: Props) {
     post("/payments", {
       transform: (data) => ({
         ...data,
-        payment_date: data.status === 'paid' ? format(data.payment_date, "yyyy-MM-dd") : null,
+        payment_date: data.status === 'paid' ? (data.payment_date ? format(data.payment_date, "yyyy-MM-dd") : null) : format(new Date(), "yyyy-MM-dd"),
       }),
       onSuccess: () => {
         toast.success(data.status === 'paid' ? "Paiement enregistré avec succès" : "Facture (créance) générée")
-        reset("notes")
+        reset("notes", "months_count", "payment_id")
+        setData("amount", rental.rent_amount)
       },
     })
   }
@@ -297,14 +300,77 @@ export default function Show({ rental }: Props) {
               <div className="rounded-2xl border bg-card p-6">
                 <FormAlert message={errors.error || pageErrors?.error || flash?.error || flash?.success} />
                 <form onSubmit={handleSubmitPayment} className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-4">
+                    {data.status === "paid" && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <Label htmlFor="payment_id" className="font-semibold text-primary">Facture concernée</Label>
+                        <Select
+                          value={data.payment_id || "none"}
+                          onValueChange={(value) => {
+                            if (value && value !== "none") {
+                              const p = rental.payments.find(p => p.id.toString() === value);
+
+                              if (p) {
+                                setData(prev => ({
+                                  ...prev,
+                                  amount: p.amount,
+                                  months_count: Number(p.amount) / Number(rental.rent_amount),
+                                  payment_id: value
+                                }));
+                              }
+                            } else {
+                              setData(prev => ({
+                                ...prev,
+                                amount: rental.rent_amount,
+                                months_count: 1,
+                                payment_id: ""
+                              }));
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-11 border-primary/50 bg-primary/5">
+                            <SelectValue placeholder="Nouvelle facture" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">-- Nouvelle facture --</SelectItem>
+                            {rental.payments.filter(p => p.status === 'pending').map(p => (
+                              <SelectItem key={p.id} value={p.id.toString()}>
+                                {p.invoice_number} ({formatCurrency(p.amount)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="space-y-2">
-                      <Label htmlFor="amount" className="font-semibold">Montant à encaisser (XOF)</Label>
+                      <Label htmlFor="months_count" className="font-semibold">Nombre de mois</Label>
+                      <Input
+                        id="months_count"
+                        name="months_count"
+                        type="number"
+                        min="1"
+                        value={data.months_count}
+                        disabled={!!data.payment_id}
+                        onChange={(e) => {
+                          const count = parseInt(e.target.value) || 1
+                          setData((prev) => ({
+                            ...prev,
+                            months_count: count,
+                            amount: (count * Number(rental.rent_amount)).toString()
+                          }))
+                        }}
+                        required
+                        className="h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="amount" className="font-semibold">Montant (XOF)</Label>
                       <Input
                         id="amount"
                         name="amount"
                         type="number"
                         value={data.amount}
+                        disabled={!!data.payment_id}
                         onChange={(e) => setData("amount", e.target.value)}
                         required
                         className="h-11 text-lg font-bold"
@@ -312,7 +378,20 @@ export default function Show({ rental }: Props) {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="status" className="font-semibold">Nature de l'opération</Label>
-                      <Select value={data.status} onValueChange={(value: any) => setData("status", value)}>
+                      <Select
+                        value={data.status}
+                        onValueChange={(value: any) => {
+                          setData(prev => ({
+                            ...prev,
+                            status: value,
+                            payment_id: value === "pending" ? "" : prev.payment_id,
+                            // Si on passe en pending, on remet les valeurs par défaut si une facture était sélectionnée
+                            amount: value === "pending" && prev.payment_id ? rental.rent_amount : prev.amount,
+                            months_count: value === "pending" && prev.payment_id ? 1 : prev.months_count,
+                          }))
+                        }}
+                        disabled={!!data.payment_id}
+                      >
                         <SelectTrigger className="h-11">
                           <SelectValue placeholder="Choisir le statut" />
                         </SelectTrigger>
