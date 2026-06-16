@@ -50,7 +50,7 @@ export default function Edit({ tenant }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    post(update(tenant.id))
+    post(update(tenant.id).url)
   }
 
   return (
@@ -60,7 +60,7 @@ export default function Edit({ tenant }: Props) {
       <div className="flex h-full flex-1 flex-col gap-4 p-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={index()}>
+            <Link href={index().url}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -154,7 +154,7 @@ export default function Edit({ tenant }: Props) {
 
                 <div className="flex justify-end gap-3">
                   <Button variant="outline" asChild disabled={processing}>
-                    <Link href={index()}>Annuler</Link>
+                    <Link href={index().url}>Annuler</Link>
                   </Button>
                   <Button type="submit" disabled={processing}>
                     {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

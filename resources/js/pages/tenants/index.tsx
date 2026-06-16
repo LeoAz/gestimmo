@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from "@inertiajs/react"
+import { Head, Link } from "@inertiajs/react"
 import { Eye, Pencil, Plus, Trash2, User } from "lucide-react"
 import * as React from "react"
 
@@ -38,15 +38,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Index({ tenants }: Props) {
   const [deleteId, setDeleteId] = React.useState<number | null>(null)
-  const { delete: destroy, processing } = useForm()
-
-  const handleDelete = () => {
-    if (deleteId) {
-      destroy(destroyTenant(deleteId), {
-        onSuccess: () => setDeleteId(null),
-      })
-    }
-  }
 
   const columns = [
     {
@@ -128,10 +119,9 @@ export default function Index({ tenants }: Props) {
       <DeleteConfirmDialog
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
-        onConfirm={handleDelete}
+        url={deleteId ? destroyTenant(deleteId).url : ""}
         title="Supprimer le locataire"
         description="Êtes-vous sûr de vouloir supprimer ce locataire ? Cette action est irréversible."
-        loading={processing}
       />
     </>
   )
