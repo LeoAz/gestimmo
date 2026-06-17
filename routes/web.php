@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('properties', PropertyController::class);
     Route::post('properties/{property}/apartments', [PropertyController::class, 'addApartment'])->name('properties.apartments.store');
     Route::resource('rentals', RentalController::class);
+    Route::post('rentals/{rental}/terminate', [RentalController::class, 'terminate'])->name('rentals.terminate');
     Route::resource('organizations', OrganizationController::class);
     Route::resource('tenants', TenantController::class);
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');

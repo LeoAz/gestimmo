@@ -1,7 +1,7 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { CalendarIcon, CheckCircle2, CreditCard, History, Printer, ArrowLeft, User, Home, Info, AlertCircle } from "lucide-react"
+import { CalendarIcon, CheckCircle2, CreditCard, History, Printer, ArrowLeft, User, Home, Info, AlertCircle, XCircle } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import AppLayout from "@/layouts/app-layout"
 import { cn } from "@/lib/utils"
 
@@ -43,6 +44,8 @@ interface Rental {
   next_payment_date: string | null
   payment_frequency: 'monthly' | 'quarterly' | 'semiannual'
   status: 'active' | 'completed' | 'cancelled'
+  termination_date: string | null
+  termination_reason: string | null
   property: {
       id: number
       title: string
@@ -79,6 +82,7 @@ export default function Show({ rental, organization }: Props) {
   const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null)
   const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
   const [showAdvanceDialog, setShowAdvanceDialog] = React.useState(false)
+  const [showTerminationDialog, setShowTerminationDialog] = React.useState(false)
 
   const advanceForm = useForm({
     rental_id: rental.id,
@@ -91,6 +95,11 @@ export default function Show({ rental, organization }: Props) {
   const markAsPaidForm = useForm({
     payment_date: new Date(),
     payment_method: "cash",
+  })
+
+  const terminationForm = useForm({
+    termination_date: new Date(),
+    termination_reason: "",
   })
 
   const handleSubmitPayment = (e: React.FormEvent) => {
@@ -138,6 +147,20 @@ export default function Show({ rental, organization }: Props) {
         toast.success("Avance enregistrée avec succès")
         setShowAdvanceDialog(false)
         advanceForm.reset()
+      },
+    })
+  }
+
+  const handleSubmitTermination = (e: React.FormEvent) => {
+    e.preventDefault()
+    terminationForm.post(`/rentals/${rental.id}/terminate`, {
+      transform: (data) => ({
+        ...data,
+        termination_date: format(data.termination_date, "yyyy-MM-dd"),
+      }),
+      onSuccess: () => {
+        toast.success("Contrat résilié avec succès")
+        setShowTerminationDialog(false)
       },
     })
   }
@@ -257,11 +280,81 @@ export default function Show({ rental, organization }: Props) {
              <Button variant="outline" asChild>
                 <Link href={`/rentals/${rental.id}/edit`}>Modifier le contrat</Link>
              </Button>
-             <Button variant="destructive" variant="outline" className="text-destructive hover:bg-destructive/10">
+            {rental.status === 'active' && (
+              <Button
+                variant="outline"
+                className="text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive"
+                onClick={() => setShowTerminationDialog(true)}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
                 Résilier le contrat
-             </Button>
+              </Button>
+            )}
           </div>
         </div>
+
+        {showTerminationDialog && (
+          <Dialog open={showTerminationDialog} onOpenChange={setShowTerminationDialog}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle className="text-destructive flex items-center gap-2">
+                  <XCircle className="h-5 w-5" />
+                  Résiliation du contrat
+                </DialogTitle>
+                <DialogDescription>
+                  Cette action mettra fin au contrat de location. L'appartement sera de nouveau disponible.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmitTermination} className="space-y-6 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="termination_date" className="font-semibold">Date de résiliation</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal h-11",
+                          !terminationForm.data.termination_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {terminationForm.data.termination_date ? format(terminationForm.data.termination_date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={terminationForm.data.termination_date}
+                        onSelect={(date) => date && terminationForm.setData("termination_date", date)}
+                        initialFocus
+                        locale={fr}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {terminationForm.errors.termination_date && <p className="text-xs text-destructive">{terminationForm.errors.termination_date}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="termination_reason" className="font-semibold">Motif de la résiliation</Label>
+                  <Textarea
+                    id="termination_reason"
+                    value={terminationForm.data.termination_reason}
+                    onChange={(e) => terminationForm.setData("termination_reason", e.target.value)}
+                    placeholder="Ex: Fin de bail, départ anticipé, non-respect des conditions..."
+                    className="min-h-32"
+                    required
+                  />
+                  {terminationForm.errors.termination_reason && <p className="text-xs text-destructive">{terminationForm.errors.termination_reason}</p>}
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button type="button" variant="ghost" onClick={() => setShowTerminationDialog(false)}>Annuler</Button>
+                  <Button type="submit" variant="destructive" disabled={terminationForm.processing}>
+                    Confirmer la résiliation
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
 
         <div className="grid gap-10 lg:grid-cols-12">
           {/* Main Content Area */}
@@ -561,6 +654,22 @@ export default function Show({ rental, organization }: Props) {
                         <span className="text-muted-foreground">Date de début</span>
                         <span className="font-semibold">{format(new Date(rental.start_date), "dd/MM/yyyy")}</span>
                     </div>
+                    {rental.status === 'completed' && rental.termination_date && (
+                        <>
+                            <Separator />
+                            <div className="space-y-2 pt-2 text-destructive">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-semibold">Résilié le</span>
+                                    <span className="font-bold">{format(new Date(rental.termination_date), "dd/MM/yyyy")}</span>
+                                </div>
+                                {rental.termination_reason && (
+                                    <div className="bg-destructive/5 p-2 rounded text-xs italic">
+                                        " {rental.termination_reason} "
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

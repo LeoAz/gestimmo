@@ -391,6 +391,62 @@ export default function Show({ property, rentals, categories }: Props) {
                   emptyMessage="Aucun paiement enregistré pour ce bien."
                />
             </section>
+
+            {/* Rental History Section */}
+            <section className="space-y-4">
+               <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    Historique des locations
+                  </h2>
+               </div>
+               <div className="rounded-xl border bg-card overflow-hidden">
+                  <table className="w-full text-sm">
+                     <thead className="bg-muted/50 border-b">
+                        <tr>
+                           <th className="px-4 py-3 text-left font-medium text-muted-foreground">Locataire</th>
+                           <th className="px-4 py-3 text-left font-medium text-muted-foreground">Période</th>
+                           <th className="px-4 py-3 text-right font-medium text-muted-foreground">Loyer</th>
+                           <th className="px-4 py-3 text-center font-medium text-muted-foreground">Statut</th>
+                           <th className="px-4 py-3 text-right font-medium text-muted-foreground">Action</th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                        {rentals.length > 0 ? (
+                           rentals.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()).map((rental) => (
+                              <tr key={rental.id} className="hover:bg-muted/30 transition-colors">
+                                 <td className="px-4 py-3 font-medium">
+                                    {rental.tenant.first_name} {rental.tenant.last_name}
+                                 </td>
+                                 <td className="px-4 py-3 text-muted-foreground">
+                                    {format(new Date(rental.start_date), "dd/MM/yy")} au {rental.status === 'completed' ? (rental.next_payment_date ? format(new Date(rental.next_payment_date), "dd/MM/yy") : "-") : "Présent"}
+                                 </td>
+                                 <td className="px-4 py-3 text-right font-bold">
+                                    {formatCurrency(rental.rent_amount)}
+                                 </td>
+                                 <td className="px-4 py-3 text-center">
+                                    <Badge variant={rental.status === 'active' ? 'default' : 'secondary'} className="text-[10px] uppercase font-bold">
+                                       {rental.status === 'active' ? 'Actif' : rental.status === 'completed' ? 'Terminé' : 'Annulé'}
+                                    </Badge>
+                                 </td>
+                                 <td className="px-4 py-3 text-right">
+                                    <Button variant="ghost" size="sm" asChild>
+                                       <Link href={`/rentals/${rental.id}`}>Voir</Link>
+                                    </Button>
+                                 </td>
+                              </tr>
+                           ))
+                        ) : (
+                           <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground italic">
+                                 Aucun historique de location pour ce bien.
+                              </td>
+                           </tr>
+                        )}
+                     </tbody>
+                  </table>
+               </div>
+            </section>
           </div>
 
           <aside className="lg:col-span-4 space-y-8">

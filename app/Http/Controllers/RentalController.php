@@ -121,22 +121,6 @@ class RentalController extends Controller
                 'status' => 'active',
             ]);
 
-            // Mettre à jour le statut du bien
-            $property = Property::find($validated['property_id']);
-            $property->update(['status' => 'rented']);
-
-            // Si c'est un appartement, mettre à jour le statut du bâtiment parent si nécessaire
-            if ($property->parent_id) {
-                $parent = Property::find($property->parent_id);
-                if ($parent) {
-                    // Le bâtiment est considéré comme "loué" si tous ses appartements le sont
-                    $allRented = ! $parent->apartments()->where('status', '!=', 'rented')->exists();
-                    if ($allRented) {
-                        $parent->update(['status' => 'rented']);
-                    }
-                }
-            }
-
             // Créer automatiquement le premier paiement (caution)
             if ($rental->deposit_amount > 0) {
                 Payment::create([
@@ -220,15 +204,7 @@ class RentalController extends Controller
                 'status' => 'required|string|in:active,completed,cancelled',
             ]);
 
-            $oldPropertyId = $rental->property_id;
-
             $rental->update($validated);
-
-            // Si le bien a changé, on met à jour les statuts
-            if ($oldPropertyId != $validated['property_id']) {
-                Property::where('id', $oldPropertyId)->update(['status' => 'available']);
-                Property::where('id', $validated['property_id'])->update(['status' => 'rented']);
-            }
 
             return redirect()->route('rentals.index')
                 ->with('success', 'Location mise à jour avec succès.');
@@ -240,29 +216,35 @@ class RentalController extends Controller
     public function destroy(Rental $rental)
     {
         try {
-            $property = $rental->property;
-
             $rental->delete();
-
-            // Mettre à jour le statut du bien
-            $property->update(['status' => 'available']);
-
-            // Si c'est un appartement, mettre à jour le statut du bâtiment parent
-            if ($property->parent_id) {
-                $parent = Property::find($property->parent_id);
-                if ($parent) {
-                    // Si au moins un appartement est disponible, le bâtiment est disponible
-                    $anyAvailable = $parent->apartments()->where('status', 'available')->exists();
-                    if ($anyAvailable) {
-                        $parent->update(['status' => 'available']);
-                    }
-                }
-            }
 
             return redirect()->route('rentals.index')
                 ->with('success', 'Location supprimée avec succès.');
         } catch (\Exception $e) {
             return back()->with('error', 'Une erreur est survenue lors de la suppression : '.$e->getMessage());
+        }
+    }
+
+    public function terminate(Request $request, Rental $rental)
+    {
+        try {
+            $validated = $request->validate([
+                'termination_date' => 'required|date',
+                'termination_reason' => 'required|string|max:1000',
+            ]);
+
+            $rental->update([
+                'termination_date' => $validated['termination_date'],
+                'termination_reason' => $validated['termination_reason'],
+                'status' => 'completed',
+            ]);
+
+            // Note: The Property status update is handled by the Rental model's "updated" observer
+            // which sets the property to 'available' if rental status is not 'active'.
+
+            return back()->with('success', 'Contrat de location résilié avec succès.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Une erreur est survenue lors de la résiliation : '.$e->getMessage());
         }
     }
 }
