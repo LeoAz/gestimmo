@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -31,6 +32,7 @@ class RevenueExport implements FromCollection, ShouldAutoSize, WithHeadings, Wit
             'Bien Immobilier',
             'Locataire',
             'Date de paiement',
+            'Période de facturation',
             'N° Facture',
             'Montant',
         ];
@@ -38,10 +40,17 @@ class RevenueExport implements FromCollection, ShouldAutoSize, WithHeadings, Wit
 
     public function map($row): array
     {
+        $period = $row->billing_period ?? (
+            (isset($row->period_start) && isset($row->period_end))
+                ? (Carbon::parse($row->period_start)->format('d/m/Y').' - '.Carbon::parse($row->period_end)->format('d/m/Y'))
+                : ''
+        );
+
         return [
             $row->property_title,
             $row->tenant_name,
-            $row->payment_date,
+            Carbon::parse($row->payment_date)->format('d/m/Y'),
+            $period,
             $row->invoice_number,
             $row->amount.' FCFA',
         ];

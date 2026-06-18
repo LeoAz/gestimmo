@@ -87,7 +87,13 @@ class ReportController extends Controller
                 ),
                 'payments.payment_date',
                 'payments.invoice_number',
-                'payments.amount'
+                'payments.amount',
+                'payments.period_start',
+                'payments.period_end',
+                DB::raw(config('database.default') === 'sqlite'
+                    ? "strftime('%d/%m/%Y', payments.period_start) || ' - ' || strftime('%d/%m/%Y', payments.period_end) as billing_period"
+                    : "CONCAT(DATE_FORMAT(payments.period_start, '%d/%m/%Y'), ' - ', DATE_FORMAT(payments.period_end, '%d/%m/%Y')) as billing_period"
+                )
             );
 
         if ($request->property_id) {
