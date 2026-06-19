@@ -17,7 +17,10 @@ import {
   Clock,
   Printer,
   Key as KeyIcon,
-  Plus
+  Plus,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
@@ -122,6 +125,16 @@ export default function Show({ property, rentals, categories }: Props) {
   const [isApartmentModalOpen, setIsApartmentModalOpen] = React.useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false)
 
+  // Rentals state
+  const [rentalsSearch, setRentalsSearch] = React.useState("")
+  const [rentalsPage, setRentalsPage] = React.useState(1)
+  const rentalsItemsPerPage = 4
+
+  // Apartments state
+  const [apartmentsSearch, setApartmentsSearch] = React.useState("")
+  const [apartmentsPage, setApartmentsPage] = React.useState(1)
+  const apartmentsItemsPerPage = 5
+
   const { data, setData, post, processing, errors, reset } = useForm({
     title: "",
     floor_number: "",
@@ -158,6 +171,33 @@ export default function Show({ property, rentals, categories }: Props) {
   } as const
 
   const activeRentals = rentals.filter(r => r.status === 'active')
+
+  const filteredRentals = React.useMemo(() => {
+    return activeRentals.filter((rental) => {
+      const fullName = `${rental.tenant.first_name} ${rental.tenant.last_name}`.toLowerCase()
+      return fullName.includes(rentalsSearch.toLowerCase())
+    })
+  }, [activeRentals, rentalsSearch])
+
+  const paginatedRentals = React.useMemo(() => {
+    const startIndex = (rentalsPage - 1) * rentalsItemsPerPage
+    return filteredRentals.slice(startIndex, startIndex + rentalsItemsPerPage)
+  }, [filteredRentals, rentalsPage])
+
+  const rentalsTotalPages = Math.ceil(filteredRentals.length / rentalsItemsPerPage)
+
+  const filteredApartments = React.useMemo(() => {
+    return property.apartments.filter((apt) =>
+      apt.title.toLowerCase().includes(apartmentsSearch.toLowerCase())
+    )
+  }, [property.apartments, apartmentsSearch])
+
+  const paginatedApartments = React.useMemo(() => {
+    const startIndex = (apartmentsPage - 1) * apartmentsItemsPerPage
+    return filteredApartments.slice(startIndex, startIndex + apartmentsItemsPerPage)
+  }, [filteredApartments, apartmentsPage])
+
+  const apartmentsTotalPages = Math.ceil(filteredApartments.length / apartmentsItemsPerPage)
 
   const allPayments = React.useMemo(() => {
     return rentals.flatMap(r =>
@@ -266,110 +306,198 @@ export default function Show({ property, rentals, categories }: Props) {
             {/* Current Rentals Section */}
             {activeRentals.length > 0 && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  Locations en cours
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {activeRentals.map((rental) => (
-                    <div key={rental.id} className="flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="font-bold text-lg leading-none">
-                            {rental.tenant.first_name} {rental.tenant.last_name}
-                          </p>
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Actif</Badge>
-                        </div>
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            Depuis le {format(new Date(rental.start_date), "dd MMMM yyyy", { locale: fr })}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-2">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    Locations en cours
+                  </h2>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher un locataire..."
+                      className="pl-9"
+                      value={rentalsSearch}
+                      onChange={(e) => {
+                        setRentalsSearch(e.target.value)
+                        setRentalsPage(1)
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {paginatedRentals.length > 0 ? (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {paginatedRentals.map((rental) => (
+                        <div key={rental.id} className="flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-lg leading-none">
+                                {rental.tenant.first_name} {rental.tenant.last_name}
+                              </p>
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Actif</Badge>
+                            </div>
+                            <div className="space-y-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                Depuis le {format(new Date(rental.start_date), "dd MMMM yyyy", { locale: fr })}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                Prochain paiement : <span className="font-medium text-foreground">{rental.next_payment_date ? format(new Date(rental.next_payment_date), "dd MMM", { locale: fr }) : "-"}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            Prochain paiement : <span className="font-medium text-foreground">{rental.next_payment_date ? format(new Date(rental.next_payment_date), "dd MMM", { locale: fr }) : "-"}</span>
+                          <div className="mt-6 flex items-center justify-between border-t pt-4">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Loyer mensuel</p>
+                              <p className="text-xl font-bold text-primary">{formatCurrency(rental.rent_amount)}</p>
+                            </div>
+                            <Button variant="secondary" size="sm" asChild className="rounded-full px-4">
+                              <Link href={`/rentals/${rental.id}`}>
+                                Gérer
+                              </Link>
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-6 flex items-center justify-between border-t pt-4">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Loyer mensuel</p>
-                          <p className="text-xl font-bold text-primary">{formatCurrency(rental.rent_amount)}</p>
-                        </div>
-                        <Button variant="secondary" size="sm" asChild className="rounded-full px-4">
-                          <Link href={`/rentals/${rental.id}`}>
-                            Gérer
-                          </Link>
+                      ))}
+                    </div>
+
+                    {rentalsTotalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setRentalsPage(p => Math.max(1, p - 1))}
+                          disabled={rentalsPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Page {rentalsPage} sur {rentalsTotalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setRentalsPage(p => Math.min(rentalsTotalPages, p + 1))}
+                          disabled={rentalsPage === rentalsTotalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-center py-8 text-muted-foreground italic border rounded-lg border-dashed">
+                    Aucune location ne correspond à votre recherche.
+                  </p>
+                )}
               </section>
             )}
 
             {/* Units Section */}
             {property.parent_id === null && (
               <section className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-blue-500" />
-                    Unités & Appartements
-                  </h2>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-2">
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-blue-500" />
+                      Unités & Appartements
+                    </h2>
                     <Badge variant="secondary">{property.apartments.length} unités</Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-full sm:w-64">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher une unité..."
+                        className="pl-9"
+                        value={apartmentsSearch}
+                        onChange={(e) => {
+                          setApartmentsSearch(e.target.value)
+                          setApartmentsPage(1)
+                        }}
+                      />
+                    </div>
                     <Button size="sm" onClick={() => setIsApartmentModalOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Ajouter
                     </Button>
                   </div>
                 </div>
+
                 <div className="grid gap-3">
-                  {property.apartments.length > 0 ? (
-                    property.apartments.map((apt) => (
-                      <div key={apt.id} className="group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/30 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                             <Home className="h-5 w-5" />
+                  {paginatedApartments.length > 0 ? (
+                    <>
+                      {paginatedApartments.map((apt) => (
+                        <div key={apt.id} className="group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/30 transition-all">
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                               <Home className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">{apt.title}</p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                                <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> Étage {apt.floor_number}</span>
+                                <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {apt.bedrooms_count || 0} ch</span>
+                                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> {apt.living_rooms_count || 0} sal</span>
+                                <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> {apt.balconies_count || 0} bal</span>
+                                <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> {apt.kitchens_count || 0} cuis</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold">{apt.title}</p>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                              <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> Étage {apt.floor_number}</span>
-                              <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {apt.bedrooms_count || 0} ch</span>
-                              <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> {apt.living_rooms_count || 0} sal</span>
-                              <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> {apt.balconies_count || 0} bal</span>
-                              <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> {apt.kitchens_count || 0} cuis</span>
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <p className="font-bold">{formatCurrency(apt.price)}</p>
+                              <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px] h-5 px-1.5">
+                                {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="icon" asChild title="Voir détails">
+                                 <Link href={`/properties/${apt.id}`}>
+                                    <Eye className="h-4 w-4" />
+                                 </Link>
+                              </Button>
+                              {apt.status === 'available' && (
+                                <Button variant="ghost" size="icon" asChild title="Nouvelle location">
+                                  <Link href={`/rentals/create?property_id=${apt.id}`}>
+                                    <KeyIcon className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                          <div className="text-right">
-                            <p className="font-bold">{formatCurrency(apt.price)}</p>
-                            <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px] h-5 px-1.5">
-                              {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" asChild title="Voir détails">
-                               <Link href={`/properties/${apt.id}`}>
-                                  <Eye className="h-4 w-4" />
-                               </Link>
-                            </Button>
-                            {apt.status === 'available' && (
-                              <Button variant="ghost" size="icon" asChild title="Nouvelle location">
-                                <Link href={`/rentals/create?property_id=${apt.id}`}>
-                                  <KeyIcon className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                            )}
-                          </div>
+                      ))}
+
+                      {apartmentsTotalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setApartmentsPage(p => Math.max(1, p - 1))}
+                            disabled={apartmentsPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            Page {apartmentsPage} sur {apartmentsTotalPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setApartmentsPage(p => Math.min(apartmentsTotalPages, p + 1))}
+                            disabled={apartmentsPage === apartmentsTotalPages}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                    ))
+                      )}
+                    </>
                   ) : (
                     <p className="text-center py-8 text-muted-foreground italic border rounded-lg border-dashed">
-                      Aucun appartement enregistré pour ce bien.
+                      {apartmentsSearch ? "Aucune unité ne correspond à votre recherche." : "Aucun appartement enregistré pour ce bien."}
                     </p>
                   )}
                 </div>
