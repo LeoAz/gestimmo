@@ -38,6 +38,8 @@ interface DataTableProps<T> {
     key: keyof T
     options: { label: string; value: string }[]
   }[]
+  showPagination?: boolean
+  footer?: React.ReactNode
 }
 
 export function DataTable<T>({
@@ -46,6 +48,8 @@ export function DataTable<T>({
   emptyMessage = "Aucun résultat trouvé.",
   searchKey,
   filters = [],
+  showPagination = true,
+  footer,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [activeFilters, setActiveFilters] = React.useState<Record<string, string>>({})
@@ -111,11 +115,15 @@ export function DataTable<T>({
   const totalPages = Math.ceil(sortedData.length / itemsPerPage)
 
   const paginatedData = React.useMemo(() => {
-    const safeCurrentPage = Math.min(Math.max(1, currentPage), Math.max(1, totalPages));
+    if (!showPagination) {
+      return sortedData
+    }
+
+    const safeCurrentPage = Math.min(Math.max(1, currentPage), Math.max(1, totalPages))
     const start = (safeCurrentPage - 1) * itemsPerPage
 
     return sortedData.slice(start, start + itemsPerPage)
-  }, [sortedData, currentPage, totalPages])
+  }, [sortedData, currentPage, totalPages, showPagination])
 
   const handleSort = (key: keyof T) => {
     let direction: "asc" | "desc" = "asc"
@@ -246,10 +254,15 @@ export function DataTable<T>({
               </TableRow>
             )}
           </TableBody>
+          {footer && (
+            <tfoot>
+              {footer}
+            </tfoot>
+          )}
         </Table>
       </div>
 
-      {totalPages > 1 && (
+      {showPagination && totalPages > 1 && (
         <div className="flex items-center justify-end space-x-2 py-4">
           <div className="text-sm text-muted-foreground">
             Page {currentPage} sur {totalPages}

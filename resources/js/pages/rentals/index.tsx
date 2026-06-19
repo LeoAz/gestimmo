@@ -151,6 +151,7 @@ export default function Index({ rentals }: Props) {
             data={rentals}
             columns={columns}
             searchKey={(row) => `${row.tenant.first_name} ${row.tenant.last_name} ${row.property.title} ${row.tenant.phone}`}
+            showPagination={false}
             filters={[
                 {
                     label: "Statut",

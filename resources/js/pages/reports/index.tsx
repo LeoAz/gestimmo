@@ -21,6 +21,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+import { TableCell, TableRow } from "@/components/ui/table"
 import AppLayout from "@/layouts/app-layout"
 import { cn } from "@/lib/utils"
 
@@ -190,6 +191,41 @@ export default function ReportsIndex({ properties, filters }: Props) {
         { id: 'forecast', title: 'Prévisions & Recouvrement', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
     ]
 
+    const getFooter = () => {
+        if (loading || reportData.length === 0) {
+            return null
+        }
+
+        let total = 0
+        let colSpan = 0
+
+        switch (activeReport) {
+            case 'late_payments':
+                total = reportData.reduce((acc, curr) => acc + Number(curr.amount_due), 0)
+                colSpan = 4
+                break
+            case 'revenue':
+                total = reportData.reduce((acc, curr) => acc + Number(curr.amount), 0)
+                colSpan = 5
+                break
+            case 'forecast':
+                total = reportData.reduce((acc, curr) => acc + (Number(curr.amount_expected) - Number(curr.amount_collected)), 0)
+                colSpan = 5
+                break
+            default:
+                return null
+        }
+
+        return (
+            <TableRow className="bg-muted/50 font-bold">
+                <TableCell colSpan={colSpan} className="text-right">Total</TableCell>
+                <TableCell className={activeReport === 'late_payments' || activeReport === 'forecast' ? "text-red-600" : ""}>
+                    {formatCurrency(total)}
+                </TableCell>
+            </TableRow>
+        )
+    }
+
     return (
         <>
             <Head title="Rapports & Statistiques" />
@@ -334,6 +370,8 @@ export default function ReportsIndex({ properties, filters }: Props) {
                             data={reportData}
                             columns={columns[activeReport]}
                             searchKey={searchKeys[activeReport] as any}
+                            showPagination={false}
+                            footer={getFooter()}
                         />
                     )}
                 </div>

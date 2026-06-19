@@ -41,6 +41,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TableCell, TableRow } from "@/components/ui/table"
 import AppLayout from "@/layouts/app-layout"
 import { PropertyForm } from "./property-form"
 
@@ -175,12 +176,14 @@ export default function Show({ property, rentals, categories }: Props) {
   const filteredRentals = React.useMemo(() => {
     return activeRentals.filter((rental) => {
       const fullName = `${rental.tenant.first_name} ${rental.tenant.last_name}`.toLowerCase()
+
       return fullName.includes(rentalsSearch.toLowerCase())
     })
   }, [activeRentals, rentalsSearch])
 
   const paginatedRentals = React.useMemo(() => {
     const startIndex = (rentalsPage - 1) * rentalsItemsPerPage
+
     return filteredRentals.slice(startIndex, startIndex + rentalsItemsPerPage)
   }, [filteredRentals, rentalsPage])
 
@@ -194,6 +197,7 @@ export default function Show({ property, rentals, categories }: Props) {
 
   const paginatedApartments = React.useMemo(() => {
     const startIndex = (apartmentsPage - 1) * apartmentsItemsPerPage
+
     return filteredApartments.slice(startIndex, startIndex + apartmentsItemsPerPage)
   }, [filteredApartments, apartmentsPage])
 
@@ -558,6 +562,13 @@ export default function Show({ property, rentals, categories }: Props) {
                   data={allPayments}
                   searchKey="tenant_name"
                   emptyMessage="Aucun paiement enregistré pour ce bien."
+                  showPagination={false}
+                  footer={
+                     <TableRow className="bg-muted/50 font-bold">
+                        <TableCell colSpan={2} className="text-right">Total</TableCell>
+                        <TableCell colSpan={3}>{formatCurrency(allPayments.reduce((acc, curr) => acc + Number(curr.amount), 0))}</TableCell>
+                     </TableRow>
+                  }
                />
             </section>
 
@@ -574,6 +585,13 @@ export default function Show({ property, rentals, categories }: Props) {
                   data={rentals}
                   searchKey={(row: any) => `${row.tenant.first_name} ${row.tenant.last_name}`}
                   emptyMessage="Aucun historique de location pour ce bien."
+                  showPagination={false}
+                  footer={
+                     <TableRow className="bg-muted/50 font-bold">
+                        <TableCell colSpan={2} className="text-right">Total</TableCell>
+                        <TableCell colSpan={3}>{formatCurrency(rentals.reduce((acc, curr) => acc + Number(curr.rent_amount), 0))}</TableCell>
+                     </TableRow>
+                  }
                />
             </section>
           </div>
