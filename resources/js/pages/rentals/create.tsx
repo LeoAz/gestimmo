@@ -379,7 +379,9 @@ export default function Create({ categories, properties, buildings, tenants }: P
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="monthly">Mensuel</SelectItem>
+                      <SelectItem value="bimonthly">Bimensuel</SelectItem>
                       <SelectItem value="quarterly">Trimestriel</SelectItem>
+                      <SelectItem value="bisessional">Bitrimestriel</SelectItem>
                       <SelectItem value="semiannual">Semestriel</SelectItem>
                       <SelectItem value="annual">Annuel</SelectItem>
                     </SelectContent>
@@ -397,7 +399,9 @@ export default function Create({ categories, properties, buildings, tenants }: P
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="monthly">Mensuel</SelectItem>
+                      <SelectItem value="bimonthly">Bimensuel</SelectItem>
                       <SelectItem value="quarterly">Trimestriel</SelectItem>
+                      <SelectItem value="bisessional">Bitrimestriel</SelectItem>
                       <SelectItem value="semiannual">Semestriel</SelectItem>
                       <SelectItem value="annual">Annuel</SelectItem>
                     </SelectContent>

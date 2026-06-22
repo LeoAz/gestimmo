@@ -82,8 +82,8 @@ class RentalController extends Controller
                 'tenant_id_card' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
                 'deposit_amount' => 'nullable|numeric|min:0',
                 'rent_amount' => 'nullable|numeric|min:0',
-                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual,annual',
-                'billing_cycle' => 'required|string|in:monthly,quarterly,semiannual,annual',
+                'payment_frequency' => 'nullable|string|in:monthly,bimonthly,quarterly,bisessional,semiannual,annual',
+                'billing_cycle' => 'required|string|in:monthly,bimonthly,quarterly,bisessional,semiannual,annual',
                 'start_date' => 'required|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
             ]);
@@ -197,8 +197,8 @@ class RentalController extends Controller
                 'tenant_id' => 'required|exists:tenants,id',
                 'deposit_amount' => 'nullable|numeric|min:0',
                 'rent_amount' => 'nullable|numeric|min:0',
-                'payment_frequency' => 'nullable|string|in:monthly,quarterly,semiannual,annual',
-                'billing_cycle' => 'required|string|in:monthly,quarterly,semiannual,annual',
+                'payment_frequency' => 'nullable|string|in:monthly,bimonthly,quarterly,bisessional,semiannual,annual',
+                'billing_cycle' => 'required|string|in:monthly,bimonthly,quarterly,bisessional,semiannual,annual',
                 'start_date' => 'required|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
                 'status' => 'required|string|in:active,completed,cancelled',
@@ -206,9 +206,14 @@ class RentalController extends Controller
 
             $rental->update($validated);
 
-            return redirect()->route('rentals.index')
+            return redirect()->route('rentals.show', $rental)
                 ->with('success', 'Location mise à jour avec succès.');
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Erreur lors de la mise à jour de la location: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'rental_id' => $rental->id,
+                'exception' => $e
+            ]);
             return back()->with('error', 'Une erreur est survenue lors de la mise à jour : '.$e->getMessage())->withInput();
         }
     }

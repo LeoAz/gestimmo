@@ -82,10 +82,11 @@ class PaymentController extends Controller
             'rental_id' => 'required|exists:rentals,id',
             'payment_id' => 'nullable|exists:payments,id',
             'amount' => 'required|numeric|min:0',
-            'months_count' => 'required|integer|min:1',
+            'months_count' => 'required|integer|min:0',
             'payment_date' => 'nullable|date',
             'payment_method' => 'nullable|string|in:cash,bank_transfer,mobile_money,balance',
             'status' => 'required|string|in:pending,paid',
+            'type' => 'required|string|in:rent,deposit,other',
             'notes' => 'nullable|string',
         ]);
 
@@ -138,9 +139,9 @@ class PaymentController extends Controller
             'payment_method' => $validated['payment_method'],
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
-            'type' => 'rent',
+            'type' => $validated['type'],
             'status' => $validated['status'],
-            'invoice_number' => 'INV-'.strtoupper(uniqid('', true)),
+            'invoice_number' => ($validated['type'] === 'deposit' ? 'DEP-' : 'INV-').strtoupper(uniqid('', true)),
             'notes' => $validated['notes'] ?? null,
         ]);
 
@@ -254,8 +255,11 @@ class PaymentController extends Controller
 
         return match ($frequency) {
             'monthly' => $date->addMonth(),
+            'bimonthly' => $date->addMonths(2),
             'quarterly' => $date->addMonths(3),
+            'bisessional' => $date->addMonths(6),
             'semiannual' => $date->addMonths(6),
+            'annual' => $date->addYear(),
             default => $date->addMonth(),
         };
     }

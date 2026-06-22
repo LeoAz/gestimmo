@@ -52,6 +52,7 @@ interface Rental {
   deposit_amount: string
   rent_amount: string
   payment_frequency: string
+  billing_cycle: string
   start_date: string
   end_date: string | null
   status: string
@@ -86,6 +87,7 @@ export default function Edit({ rental, categories, properties, buildings, tenant
     deposit_amount: rental.deposit_amount,
     rent_amount: rental.rent_amount,
     payment_frequency: rental.payment_frequency,
+    billing_cycle: rental.billing_cycle,
     start_date: parseISO(rental.start_date),
     end_date: rental.end_date ? parseISO(rental.end_date) : null,
     status: rental.status,
@@ -95,24 +97,24 @@ export default function Edit({ rental, categories, properties, buildings, tenant
     rental.property.property_category_id.toString()
   )
 
-  const [selectedBuildingId, setSelectedBuildingId] = React.useState<string>("")
-
-  React.useEffect(() => {
-    const selectedCategory = categories.find(c => c.id.toString() === selectedCategoryId)
+  const [selectedBuildingId, setSelectedBuildingId] = React.useState<string>(() => {
+    const selectedCategory = categories.find(c => c.id.toString() === rental.property.property_category_id.toString())
     const isBuildingType = selectedCategory?.slug === 'immeuble' || selectedCategory?.slug === 'batiment'
 
     if (isBuildingType) {
-        const building = buildings.find(b =>
-            b.apartments.some(a => a.id === rental.property_id)
-        )
-        if (building) {
-            setSelectedBuildingId(building.id.toString())
-        } else if (rental.property.id === rental.property_id) {
-             setSelectedBuildingId(rental.property.id.toString())
-        }
+      const building = buildings.find(b =>
+        b.apartments.some(a => a.id === rental.property_id)
+      )
+
+      if (building) {
+        return building.id.toString()
+      } else if (rental.property.id === rental.property_id) {
+        return rental.property.id.toString()
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
+    return ""
+  })
 
   const selectedCategory = categories.find(c => c.id.toString() === selectedCategoryId)
   const isBuildingType = selectedCategory?.slug === 'immeuble' || selectedCategory?.slug === 'batiment'
@@ -301,12 +303,38 @@ export default function Edit({ rental, categories, properties, buildings, tenant
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="monthly">Mensuel</SelectItem>
+                      <SelectItem value="bimonthly">Bimensuel</SelectItem>
                       <SelectItem value="quarterly">Trimestriel</SelectItem>
+                      <SelectItem value="bisessional">Bitrimestriel</SelectItem>
                       <SelectItem value="semiannual">Semestriel</SelectItem>
+                      <SelectItem value="annual">Annuel</SelectItem>
                     </SelectContent>
                   </Select>
                   <InputError message={errors.payment_frequency} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="billing_cycle">Mode de facturation</Label>
+                  <Select
+                    value={data.billing_cycle}
+                    onValueChange={(value) => setData("billing_cycle", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir le cycle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Mensuel</SelectItem>
+                      <SelectItem value="bimonthly">Bimensuel</SelectItem>
+                      <SelectItem value="quarterly">Trimestriel</SelectItem>
+                      <SelectItem value="bisessional">Bitrimestriel</SelectItem>
+                      <SelectItem value="semiannual">Semestriel</SelectItem>
+                      <SelectItem value="annual">Annuel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <InputError message={errors.billing_cycle} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="status">Statut de la location</Label>
                   <Select

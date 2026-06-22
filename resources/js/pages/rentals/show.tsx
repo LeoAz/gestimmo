@@ -75,6 +75,7 @@ export default function Show({ rental, organization }: Props) {
     payment_date: new Date(),
     payment_method: "cash",
     status: "paid",
+    type: "rent",
     notes: "",
   })
 
@@ -492,6 +493,30 @@ export default function Show({ rental, organization }: Props) {
                         <SelectContent>
                           <SelectItem value="paid">Paiement immédiat (Reçu)</SelectItem>
                           <SelectItem value="pending">Facturer (Créance)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="type" className="font-semibold">Type de facture</Label>
+                      <Select
+                        value={data.type}
+                        onValueChange={(value: any) => {
+                          setData(prev => ({
+                            ...prev,
+                            type: value,
+                            amount: value === "deposit" ? rental.deposit_amount : (value === "rent" ? (prev.months_count * Number(rental.rent_amount)).toString() : prev.amount),
+                            months_count: value === "deposit" ? 0 : (value === "rent" ? prev.months_count : 0)
+                          }))
+                        }}
+                        disabled={!!data.payment_id}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Choisir le type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="rent">Loyer</SelectItem>
+                          <SelectItem value="deposit">Facture caution</SelectItem>
+                          <SelectItem value="other">Autre</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

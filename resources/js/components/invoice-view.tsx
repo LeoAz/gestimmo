@@ -120,7 +120,7 @@ export function InvoiceView({ payment, printMode = "standard", organization }: P
               <div>
                   <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Période</h3>
                   <p className="font-semibold text-xs">
-                      {format(new Date(payment.period_start), "dd/MM/yy")} au {format(new Date(payment.period_end), "dd/MM/yy")}
+                      {payment.type === 'deposit' ? 'N/A' : format(new Date(payment.period_start), "MMMM yyyy", { locale: fr })}
                   </p>
               </div>
           </div>
