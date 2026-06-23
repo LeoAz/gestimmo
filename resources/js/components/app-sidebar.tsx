@@ -10,6 +10,7 @@ import { index as propertiesIndex } from '@/actions/App/Http/Controllers/Propert
 import { index as rentalsIndex } from '@/actions/App/Http/Controllers/RentalController';
 import { index as reportsIndex } from '@/actions/App/Http/Controllers/ReportController';
 import { index as tenantsIndex } from '@/actions/App/Http/Controllers/TenantController';
+import { index as usersIndex } from '@/actions/App/Http/Controllers/UserController';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -41,6 +42,10 @@ const mainNavItems: NavItem[] = [
         title: 'Configuration',
         icon: Settings,
         items: [
+            {
+                title: 'Utilisateurs',
+                href: usersIndex(),
+            },
             {
                 title: 'Catégories',
                 href: propertyCategoriesIndex(),

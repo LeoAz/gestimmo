@@ -12,6 +12,7 @@ use App\Http\Controllers\RentalController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\OrganizationController;
 use App\Http\Controllers\TenantController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,6 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('rentals/{rental}/terminate', [RentalController::class, 'terminate'])->name('rentals.terminate');
     Route::resource('organizations', OrganizationController::class);
     Route::resource('tenants', TenantController::class);
+    Route::resource('users', UserController::class);
     Route::resource('invoices', InvoiceController::class);
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::post('payments', [PaymentController::class, 'store'])->name('payments.store');
