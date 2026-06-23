@@ -45,7 +45,7 @@ class InvoiceController extends Controller
 
             $invoice = Invoice::create([
                 'rental_id' => $validated['rental_id'],
-                'invoice_number' => Invoice::generateInvoiceNumber(),
+                'invoice_number' => Invoice::generateInvoiceNumber(new \DateTime($validated['date'])),
                 'date' => $validated['date'],
                 'due_date' => $validated['due_date'],
                 'type' => $validated['type'],

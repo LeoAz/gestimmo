@@ -45,22 +45,31 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
-    public static function generateInvoiceNumber(): string
+    public static function generateInvoiceNumber(?\DateTimeInterface $date = null): string
     {
-        $lastInvoice = self::whereYear('date', now()->year)
-            ->whereMonth('date', now()->month)
-            ->orderBy('id', 'desc')
-            ->first();
+        $date = $date ?: now();
+        $month = $date->format('m');
+        $year = $date->format('Y');
+
+        $query = self::whereYear('date', $year)
+            ->whereMonth('date', $month)
+            ->where('invoice_number', 'like', "%/DP/$month/$year");
+
+        if (config('database.default') === 'sqlite') {
+            $lastInvoice = $query->orderBy('invoice_number', 'desc')->first();
+        } else {
+            $lastInvoice = $query->orderByRaw('CAST(SUBSTRING_INDEX(invoice_number, "/", 1) AS UNSIGNED) DESC')
+                ->first();
+        }
 
         $number = 1;
         if ($lastInvoice) {
-            // Extraire le numéro avant /DP/
             preg_match('/^(\d+)/', $lastInvoice->invoice_number, $matches);
             if (isset($matches[1])) {
                 $number = (int) $matches[1] + 1;
             }
         }
 
-        return sprintf('%04d', $number).'/DP/'.now()->format('m/Y');
+        return sprintf('%04d', $number)."/DP/$month/$year";
     }
 }

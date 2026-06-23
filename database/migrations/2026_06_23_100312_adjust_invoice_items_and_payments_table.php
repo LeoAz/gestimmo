@@ -23,19 +23,22 @@ return new class extends Migration
         // Supprimer les paiements orphelins (sans facture) pour permettre le NOT NULL
         DB::table('payments')->whereNull('invoice_id')->delete();
 
-        // Vérifier si la foreign key existe
-        $foreignKeyExists = DB::select("
-            SELECT CONSTRAINT_NAME
-            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = DATABASE()
-            AND TABLE_NAME = 'payments'
-            AND CONSTRAINT_NAME = 'payments_invoice_id_foreign'
-        ");
+        // Pour SQLite, on évite les requêtes INFORMATION_SCHEMA
+        if (DB::getDriverName() !== 'sqlite') {
+            // Vérifier si la foreign key existe
+            $foreignKeyExists = DB::select("
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'payments'
+                AND CONSTRAINT_NAME = 'payments_invoice_id_foreign'
+            ");
 
-        if (! empty($foreignKeyExists)) {
-            Schema::table('payments', function (Blueprint $table) {
-                $table->dropForeign(['invoice_id']);
-            });
+            if (! empty($foreignKeyExists)) {
+                Schema::table('payments', function (Blueprint $table) {
+                    $table->dropForeign(['invoice_id']);
+                });
+            }
         }
 
         Schema::table('payments', function (Blueprint $table) {
