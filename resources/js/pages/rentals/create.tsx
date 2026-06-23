@@ -300,7 +300,7 @@ export default function Create({ categories, properties, buildings, tenants }: P
                         <Combobox
                           options={availableApartments.map((a) => ({
                             value: a.id.toString(),
-                            label: `${a.title} - ${a.price ? `${Number(a.price).toLocaleString()} XOF` : 'Prix non défini'}`,
+                            label: `${a.title} (Etage ${a.floor_number || 0}) - ${a.price ? `${Number(a.price).toLocaleString()} XOF` : 'Prix non défini'}`,
                           }))}
                           value={data.property_id}
                           onValueChange={(value) => {

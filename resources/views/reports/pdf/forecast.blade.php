@@ -4,6 +4,7 @@
 <table style="border-top: 4px solid #3B82F6;">
     <thead style="background-color: #3B82F6;">
         <tr>
+            <th>Immeuble</th>
             <th>Bien Immobilier</th>
             <th>Locataire</th>
             <th>Période</th>
@@ -15,6 +16,7 @@
     <tbody>
         @foreach($data as $row)
         <tr>
+            <td>{{ $row->building_title ?? '-' }}</td>
             <td>{{ $row->property_title }}</td>
             <td>{{ $row->tenant_name }}</td>
             <td>{{ $row->period }}</td>
@@ -28,7 +30,7 @@
     </tbody>
     <tfoot>
         <tr>
-            <td colspan="3" class="text-right font-bold">Totaux</td>
+            <td colspan="4" class="text-right font-bold">Totaux</td>
             <td class="text-right font-bold">{{ number_format($data->sum('amount_expected'), 0, ',', ' ') }} FCFA</td>
             <td class="text-right font-bold">{{ number_format($data->sum('amount_collected'), 0, ',', ' ') }} FCFA</td>
             <td class="text-right font-bold">{{ number_format($data->sum('amount_expected') - $data->sum('amount_collected'), 0, ',', ' ') }} FCFA</td>

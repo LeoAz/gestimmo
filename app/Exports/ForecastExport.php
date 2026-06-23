@@ -28,6 +28,7 @@ class ForecastExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
     public function headings(): array
     {
         return [
+            'Immeuble',
             'Bien Immobilier',
             'Locataire',
             'Période',
@@ -40,6 +41,7 @@ class ForecastExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
     public function map($row): array
     {
         return [
+            $row->building_title ?? '-',
             $row->property_title,
             $row->tenant_name,
             $row->period,

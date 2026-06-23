@@ -33,7 +33,10 @@ interface Invoice {
   notes: string | null
   rental: {
     id: number
-    property: { title: string }
+    property: {
+      title: string
+      parent?: { title: string }
+    }
     tenant: { first_name: string; last_name: string; phone: string; address: string | null }
   }
   items: InvoiceItem[]
@@ -46,19 +49,29 @@ interface Rental {
   rent_amount: string
 }
 
+interface Building {
+  id: number
+  title: string
+}
+
 interface Props {
   invoices: {
       data: Invoice[]
       links: any[]
   }
   rentals: Rental[]
+  buildings: Building[]
+  filters: {
+      property_id?: string
+      status?: string
+  }
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Factures", href: "/invoices" },
 ]
 
-export default function Index({ invoices }: Props) {
+export default function Index({ invoices, buildings }: Props) {
   const [deleteId, setDeleteId] = React.useState<number | null>(null)
 
   const columns = [
@@ -78,7 +91,16 @@ export default function Index({ invoices }: Props) {
     },
     {
       header: "Bien",
-      accessor: (row: Invoice) => row.rental.property.title
+      accessor: (row: Invoice) => (
+        <div className="flex flex-col">
+            {row.rental.property.parent && (
+                <span className="text-[10px] text-muted-foreground uppercase leading-tight">
+                    {row.rental.property.parent.title}
+                </span>
+            )}
+            <span className="font-medium">{row.rental.property.title}</span>
+        </div>
+      )
     },
     {
         header: "Type",
@@ -146,6 +168,21 @@ export default function Index({ invoices }: Props) {
             data={invoices.data}
             columns={columns}
             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
+            filters={[
+                {
+                    label: "Immeuble / Bâtiment",
+                    key: "property_id",
+                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                },
+                {
+                    label: "Statut",
+                    key: "status",
+                    options: [
+                        { label: "Payée", value: "paid" },
+                        { label: "En attente", value: "pending" },
+                    ]
+                }
+            ]}
         />
       </div>
 

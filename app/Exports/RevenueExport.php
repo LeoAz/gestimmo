@@ -29,6 +29,7 @@ class RevenueExport implements FromCollection, ShouldAutoSize, WithHeadings, Wit
     public function headings(): array
     {
         return [
+            'Immeuble',
             'Bien Immobilier',
             'Locataire',
             'Date de paiement',
@@ -47,6 +48,7 @@ class RevenueExport implements FromCollection, ShouldAutoSize, WithHeadings, Wit
         );
 
         return [
+            $row->building_title ?? '-',
             $row->property_title,
             $row->tenant_name,
             Carbon::parse($row->payment_date)->format('d/m/Y'),

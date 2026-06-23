@@ -55,9 +55,9 @@ class PaymentController extends Controller
         }
 
         return Inertia::render('payments/index', [
-            'payments' => Payment::with(['rental.property', 'rental.tenant', 'invoice.items'])->orderByDesc('payment_date')->get(),
+            'payments' => Payment::with(['rental.property.parent', 'rental.tenant', 'invoice.items'])->orderByDesc('payment_date')->get(),
             'futurePayments' => $futurePayments,
-            'debts' => Invoice::with(['rental.property', 'rental.tenant', 'items'])->where('status', '!=', 'paid')->get(),
+            'debts' => Invoice::with(['rental.property.parent', 'rental.tenant', 'items'])->where('status', '!=', 'paid')->get(),
             'filters' => $request->only(['search', 'status']),
             'organization' => $organization,
         ]);
@@ -72,7 +72,7 @@ class PaymentController extends Controller
         }
 
         return Inertia::render('payments/invoice', [
-            'payment' => $payment->load(['rental.property', 'rental.tenant', 'invoice.items']),
+            'payment' => $payment->load(['rental.property.parent', 'rental.tenant', 'invoice.items']),
             'organization' => $organization,
         ]);
     }

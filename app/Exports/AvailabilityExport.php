@@ -28,6 +28,7 @@ class AvailabilityExport implements FromCollection, ShouldAutoSize, WithHeadings
     public function headings(): array
     {
         return [
+            'Immeuble',
             'Bien Immobilier',
             'Type',
             'Ville',
@@ -39,6 +40,7 @@ class AvailabilityExport implements FromCollection, ShouldAutoSize, WithHeadings
     public function map($row): array
     {
         return [
+            $row->building_title ?? '-',
             $row->title,
             $row->type,
             $row->city,

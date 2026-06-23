@@ -15,7 +15,7 @@ class RentalController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Rental::with(['property', 'tenant']);
+        $query = Rental::with(['property.parent', 'tenant']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -25,7 +25,10 @@ class RentalController extends Controller
                         ->orWhere('last_name', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%");
                 })->orWhereHas('property', function ($p) use ($search) {
-                    $p->where('title', 'like', "%{$search}%");
+                    $p->where('title', 'like', "%{$search}%")
+                        ->orWhereHas('parent', function ($pp) use ($search) {
+                            $pp->where('title', 'like', "%{$search}%");
+                        });
                 });
             });
         }
@@ -34,9 +37,21 @@ class RentalController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->filled('property_id')) {
+            $query->whereHas('property', function ($p) use ($request) {
+                $p->where('id', $request->property_id)
+                    ->orWhere('parent_id', $request->property_id);
+            });
+        }
+
+        $buildings = Property::whereHas('category', function ($query) {
+            $query->whereIn('slug', ['immeuble', 'batiment']);
+        })->get();
+
         return Inertia::render('rentals/index', [
             'rentals' => $query->orderByDesc('id')->get(),
-            'filters' => $request->only(['search', 'status']),
+            'buildings' => $buildings,
+            'filters' => $request->only(['search', 'status', 'property_id']),
         ]);
     }
 

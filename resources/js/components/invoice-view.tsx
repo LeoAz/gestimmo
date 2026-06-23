@@ -25,6 +25,9 @@ export interface Invoice {
     rental: {
         property: {
             title: string
+            parent?: {
+                title: string
+            }
         }
         tenant: {
             first_name: string
@@ -49,53 +52,62 @@ export function InvoiceView({ invoice }: Props) {
     }
 
     const numberToWords = (num: number) => {
-        const units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"];
-        const tens = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante-dix", "quatre-vingt", "quatre-vingt-dix"];
-        const scales = ["", "mille", "million", "milliard"];
+        const units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"]
+        const tens = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante-dix", "quatre-vingt", "quatre-vingt-dix"]
+        const scales = ["", "mille", "million", "milliard"]
 
-        if (num === 0) return "zéro";
-
-        const convertChunk = (n: number): string => {
-            let chunk = "";
-            if (n >= 100) {
-                const hundreds = Math.floor(n / 100);
-                chunk += (hundreds > 1 ? units[hundreds] + " " : "") + "cent ";
-                n %= 100;
-            }
-            if (n >= 20) {
-                const t = Math.floor(n / 10);
-                const u = n % 10;
-                if (t === 7 || t === 9) {
-                    chunk += tens[t - 1] + "-" + (u === 1 ? "et-" : "") + (u === 0 ? "dix" : units[u + 10] || "dix-" + units[u]);
-                } else {
-                    chunk += tens[t] + (u === 1 ? "-et-" : u > 0 ? "-" : "") + units[u];
-                }
-            } else if (n >= 10) {
-                const special = ["dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
-                chunk += special[n - 10];
-            } else if (n > 0) {
-                chunk += units[n];
-            }
-            return chunk.trim();
-        };
-
-        let word = "";
-        let scaleIndex = 0;
-        let tempNum = num;
-
-        while (tempNum > 0) {
-            const chunk = tempNum % 1000;
-            if (chunk > 0) {
-                const chunkText = convertChunk(chunk);
-                const scaleText = scales[scaleIndex];
-                word = chunkText + (scaleText ? " " + scaleText : "") + (word ? " " + word : "");
-            }
-            tempNum = Math.floor(tempNum / 1000);
-            scaleIndex++;
+        if (num === 0) {
+            return "zéro"
         }
 
-        const result = word.trim();
-        return result.charAt(0).toUpperCase() + result.slice(1);
+        const convertChunk = (n: number): string => {
+            let chunk = ""
+
+            if (n >= 100) {
+                const hundreds = Math.floor(n / 100)
+                chunk += (hundreds > 1 ? units[hundreds] + " " : "") + "cent "
+                n %= 100
+            }
+
+            if (n >= 20) {
+                const t = Math.floor(n / 10)
+                const u = n % 10
+
+                if (t === 7 || t === 9) {
+                    chunk += tens[t - 1] + "-" + (u === 1 ? "et-" : "") + (u === 0 ? "dix" : units[u + 10] || "dix-" + units[u])
+                } else {
+                    chunk += tens[t] + (u === 1 ? "-et-" : u > 0 ? "-" : "") + units[u]
+                }
+            } else if (n >= 10) {
+                const special = ["dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"]
+                chunk += special[n - 10]
+            } else if (n > 0) {
+                chunk += units[n]
+            }
+
+            return chunk.trim()
+        }
+
+        let word = ""
+        let scaleIndex = 0
+        let tempNum = num
+
+        while (tempNum > 0) {
+            const chunk = tempNum % 1000
+
+            if (chunk > 0) {
+                const chunkText = convertChunk(chunk)
+                const scaleText = scales[scaleIndex]
+                word = chunkText + (scaleText ? " " + scaleText : "") + (word ? " " + word : "")
+            }
+
+            tempNum = Math.floor(tempNum / 1000)
+            scaleIndex++
+        }
+
+        const result = word.trim()
+
+        return result.charAt(0).toUpperCase() + result.slice(1)
     }
 
     const items = invoice.items || invoice.invoice?.items || []
@@ -118,8 +130,13 @@ export function InvoiceView({ invoice }: Props) {
                     <span className="font-bold">FACTURE N°</span>
                     <span className="ml-4">{invoice.invoice_number}</span>
                 </div>
-                <div className="text-xl font-serif italic pr-20">
-                    {invoice.rental.property.title}
+                <div className="text-xl font-serif italic pr-20 flex flex-col items-end">
+                    {invoice.rental.property.parent && (
+                        <span className="text-xs font-sans not-italic text-gray-500 uppercase tracking-wider mb-1">
+                            {invoice.rental.property.parent.title}
+                        </span>
+                    )}
+                    <span>{invoice.rental.property.title}</span>
                 </div>
             </div>
 
@@ -152,7 +169,18 @@ export function InvoiceView({ invoice }: Props) {
                 <tbody>
                     {items.map((item, index) => (
                         <tr key={index} className="h-16 print:h-12 align-top">
-                            <td className="border-r border-gray-400 p-2">{index === 0 ? invoice.rental.property.title : ""}</td>
+                            <td className="border-r border-gray-400 p-2">
+                                {index === 0 ? (
+                                    <div className="flex flex-col">
+                                        {invoice.rental.property.parent && (
+                                            <span className="text-[10px] text-gray-500 uppercase">
+                                                {invoice.rental.property.parent.title}
+                                            </span>
+                                        )}
+                                        <span className="font-medium">{invoice.rental.property.title}</span>
+                                    </div>
+                                ) : ""}
+                            </td>
                             <td className="border-r border-gray-400 p-2">{item.designation}</td>
                             <td className="border-r border-gray-400 p-2">{item.period}</td>
                             <td className="border-r border-gray-400 p-2 text-center">{item.months_count || 1}</td>

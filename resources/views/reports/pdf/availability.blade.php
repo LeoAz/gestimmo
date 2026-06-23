@@ -4,6 +4,7 @@
 <table style="border-top: 4px solid #F59E0B;">
     <thead style="background-color: #F59E0B;">
         <tr>
+            <th>Immeuble</th>
             <th>Bien Immobilier</th>
             <th>Type</th>
             <th>Ville</th>
@@ -14,6 +15,7 @@
     <tbody>
         @foreach($data as $row)
         <tr>
+            <td>{{ $row->building_title ?? '-' }}</td>
             <td>{{ $row->title }}</td>
             <td>{{ $row->type }}</td>
             <td>{{ $row->city }}</td>

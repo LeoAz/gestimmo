@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Models\Property;
 use App\Models\Rental;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -10,18 +11,37 @@ use Inertia\Inertia;
 
 class InvoiceController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $query = Invoice::with(['rental.tenant', 'rental.property.parent']);
+
+        if ($request->filled('property_id')) {
+            $query->whereHas('rental.property', function ($q) use ($request) {
+                $q->where('id', $request->property_id)
+                    ->orWhere('parent_id', $request->property_id);
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $buildings = Property::whereHas('category', function ($query) {
+            $query->whereIn('slug', ['immeuble', 'batiment']);
+        })->get();
+
         return Inertia::render('invoices/index', [
-            'invoices' => Invoice::with(['rental.tenant', 'rental.property'])->latest()->paginate(10),
-            'rentals' => Rental::with(['tenant', 'property'])->get(),
+            'invoices' => $query->latest()->paginate(10)->withQueryString(),
+            'buildings' => $buildings,
+            'filters' => $request->only(['property_id', 'status']),
+            'rentals' => Rental::with(['tenant', 'property.parent'])->get(),
         ]);
     }
 
     public function create()
     {
         return Inertia::render('invoices/create', [
-            'rentals' => Rental::with(['tenant', 'property'])->get(),
+            'rentals' => Rental::with(['tenant', 'property.parent'])->get(),
         ]);
     }
 
@@ -75,7 +95,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         return Inertia::render('invoices/show', [
-            'invoice' => $invoice->load(['rental.tenant', 'rental.property', 'items']),
+            'invoice' => $invoice->load(['rental.tenant', 'rental.property.parent', 'items']),
         ]);
     }
 
@@ -83,7 +103,7 @@ class InvoiceController extends Controller
     {
         return Inertia::render('invoices/edit', [
             'invoice' => $invoice->load(['items']),
-            'rentals' => Rental::with(['tenant', 'property'])->get(),
+            'rentals' => Rental::with(['tenant', 'property.parent'])->get(),
         ]);
     }
 

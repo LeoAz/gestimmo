@@ -4,6 +4,7 @@
 <table style="border-top: 4px solid #10B981;">
     <thead style="background-color: #10B981;">
         <tr>
+            <th>Immeuble</th>
             <th>Bien Immobilier</th>
             <th>Locataire</th>
             <th>Date de paiement</th>
@@ -15,6 +16,7 @@
     <tbody>
         @foreach($data as $row)
         <tr>
+            <td>{{ $row->building_title ?? '-' }}</td>
             <td>{{ $row->property_title }}</td>
             <td>{{ $row->tenant_name }}</td>
             <td>{{ \Carbon\Carbon::parse($row->payment_date)->format('d/m/Y') }}</td>
@@ -26,7 +28,7 @@
     </tbody>
     <tfoot>
         <tr>
-            <td colspan="5" class="text-right font-bold">Total Chiffre d'Affaires</td>
+            <td colspan="6" class="text-right font-bold">Total Chiffre d'Affaires</td>
             <td class="text-right font-bold">{{ number_format($data->sum('amount'), 0, ',', ' ') }} FCFA</td>
         </tr>
     </tfoot>

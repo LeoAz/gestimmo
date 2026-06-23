@@ -5,11 +5,9 @@ import { Download, Eye, Printer, AlertCircle, Calendar, History, Plus } from "lu
 import * as React from "react"
 import { toast } from "sonner"
 
-import { index as paymentsIndex } from "@/actions/App/Http/Controllers/PaymentController"
 import { show as rentalsShow } from "@/actions/App/Http/Controllers/RentalController"
 import { DataTable } from "@/components/data-table"
 import Heading from "@/components/heading"
-import { InvoiceView } from "@/components/invoice-view"
 import type { Payment, Invoice } from "@/components/invoice-view"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,6 +35,7 @@ interface Rental {
     }
     property: {
         title: string
+        parent?: { title: string }
     }
     next_payment_date: string
     rent_amount: string
@@ -85,6 +84,7 @@ export default function Index({ payments, futurePayments, debts }: Props) {
 
     const handleInvoiceChange = (invoiceId: string) => {
         const invoice = debts.find(d => d.id === parseInt(invoiceId))
+
         if (invoice) {
             setData(d => ({
                 ...d,
@@ -109,7 +109,16 @@ export default function Index({ payments, futurePayments, debts }: Props) {
         },
         {
             header: "Bien",
-            accessor: (row: Payment) => row.rental.property.title
+            accessor: (row: Payment) => (
+                <div className="flex flex-col text-left">
+                    {row.rental.property.parent && (
+                        <span className="text-[10px] text-muted-foreground uppercase leading-tight">
+                            {row.rental.property.parent.title}
+                        </span>
+                    )}
+                    <span className="font-medium">{row.rental.property.title}</span>
+                </div>
+            )
         },
         {
             header: "Montant",
@@ -166,7 +175,16 @@ export default function Index({ payments, futurePayments, debts }: Props) {
         },
         {
             header: "Bien",
-            accessor: (row: Invoice) => row.rental.property.title
+            accessor: (row: Invoice) => (
+                <div className="flex flex-col text-left">
+                    {row.rental.property.parent && (
+                        <span className="text-[10px] text-muted-foreground uppercase leading-tight">
+                            {row.rental.property.parent.title}
+                        </span>
+                    )}
+                    <span className="font-medium">{row.rental.property.title}</span>
+                </div>
+            )
         },
         {
             header: "Montant à payer",
@@ -200,7 +218,16 @@ export default function Index({ payments, futurePayments, debts }: Props) {
         },
         {
             header: "Bien",
-            accessor: (row: Rental) => row.property.title
+            accessor: (row: Rental) => (
+                <div className="flex flex-col text-left">
+                    {row.property.parent && (
+                        <span className="text-[10px] text-muted-foreground uppercase leading-tight">
+                            {row.property.parent.title}
+                        </span>
+                    )}
+                    <span className="font-medium">{row.property.title}</span>
+                </div>
+            )
         },
         {
             header: "Montant prévu",

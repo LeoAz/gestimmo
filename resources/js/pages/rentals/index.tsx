@@ -14,6 +14,10 @@ interface Property {
   title: string
   city: string | null
   price: string | null
+  parent?: {
+    id: number
+    title: string
+  } | null
 }
 
 interface Tenant {
@@ -34,11 +38,18 @@ interface Rental {
   tenant: Tenant
 }
 
+interface Building {
+  id: number
+  title: string
+}
+
 interface Props {
   rentals: Rental[]
+  buildings: Building[]
   filters: {
     search?: string
     status?: string
+    property_id?: string
   }
 }
 
@@ -49,7 +60,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ]
 
-export default function Index({ rentals }: Props) {
+export default function Index({ rentals, buildings, filters }: Props) {
   const [selectedRental, setSelectedRental] = React.useState<Rental | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
 
@@ -64,6 +75,10 @@ export default function Index({ rentals }: Props) {
                 {row.tenant.first_name} {row.tenant.last_name}
             </Link>
         )
+    },
+    {
+        header: "Immeuble / Bâtiment",
+        accessor: (row: Rental) => row.property.parent?.title || "-"
     },
     {
         header: "Bien",
@@ -153,6 +168,11 @@ export default function Index({ rentals }: Props) {
             searchKey={(row) => `${row.tenant.first_name} ${row.tenant.last_name} ${row.property.title} ${row.tenant.phone}`}
             showPagination={false}
             filters={[
+                {
+                    label: "Immeuble / Bâtiment",
+                    key: "property_id",
+                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                },
                 {
                     label: "Statut",
                     key: "status",

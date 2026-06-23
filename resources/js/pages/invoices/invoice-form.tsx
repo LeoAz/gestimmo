@@ -15,7 +15,10 @@ import { Textarea } from "@/components/ui/textarea"
 
 interface Rental {
   id: number
-  property: { title: string }
+  property: {
+    title: string
+    parent?: { title: string }
+  }
   tenant: { first_name: string; last_name: string }
   rent_amount: string
 }
@@ -95,7 +98,7 @@ export function InvoiceForm({ rentals, initialData, onSubmit, processing, errors
           <Combobox
             options={rentals.map((rental) => ({
               value: rental.id.toString(),
-              label: `${rental.property.title} - ${rental.tenant.first_name} ${rental.tenant.last_name}`,
+              label: `${rental.property.parent ? rental.property.parent.title + " - " : ""}${rental.property.title} - ${rental.tenant.first_name} ${rental.tenant.last_name}`,
             }))}
             value={data.rental_id?.toString() || ""}
             onValueChange={handleRentalChange}

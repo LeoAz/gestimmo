@@ -21,11 +21,15 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
-        $properties = Property::select('id', 'title')->get();
+        $properties = Property::select('id', 'title', 'parent_id')->get();
+        $buildings = Property::whereHas('category', function ($query) {
+            $query->whereIn('slug', ['immeuble', 'batiment']);
+        })->select('id', 'title')->get();
 
         return Inertia::render('reports/index', [
             'properties' => $properties,
-            'filters' => $request->only(['property_id', 'start_date', 'end_date', 'type']),
+            'buildings' => $buildings,
+            'filters' => $request->only(['property_id', 'building_id', 'start_date', 'end_date', 'type']),
         ]);
     }
 
@@ -33,10 +37,12 @@ class ReportController extends Controller
     {
         $query = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
+            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
             ->whereIn('invoices.status', ['pending', 'partial'])
             ->where('invoices.due_date', '<', now())
             ->select(
+                'buildings.title as building_title',
                 'properties.title as property_title',
                 DB::raw(config('database.default') === 'sqlite'
                     ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
@@ -53,6 +59,13 @@ class ReportController extends Controller
 
         if ($request->property_id) {
             $query->where('rentals.property_id', $request->property_id);
+        }
+
+        if ($request->building_id) {
+            $query->where(function ($q) use ($request) {
+                $q->where('properties.id', $request->building_id)
+                    ->orWhere('properties.parent_id', $request->building_id);
+            });
         }
 
         $data = $query->get();
@@ -80,10 +93,12 @@ class ReportController extends Controller
     {
         $query = Payment::join('rentals', 'payments.rental_id', '=', 'rentals.id')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
+            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
             ->where('payments.status', 'paid')
             ->whereNotNull('payments.invoice_id') // Uniquement sur encaissement des factures
             ->select(
+                'buildings.title as building_title',
                 'properties.title as property_title',
                 DB::raw(config('database.default') === 'sqlite'
                     ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
@@ -102,6 +117,13 @@ class ReportController extends Controller
 
         if ($request->property_id) {
             $query->where('rentals.property_id', $request->property_id);
+        }
+
+        if ($request->building_id) {
+            $query->where(function ($q) use ($request) {
+                $q->where('properties.id', $request->building_id)
+                    ->orWhere('properties.parent_id', $request->building_id);
+            });
         }
 
         if ($request->start_date) {
@@ -135,12 +157,21 @@ class ReportController extends Controller
 
     public function availability(Request $request)
     {
-        $query = Property::select('title', 'type', 'city', 'status', 'price');
+        $query = Property::leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
+            ->select(
+                'buildings.title as building_title',
+                'properties.title',
+                'properties.type',
+                'properties.city',
+                'properties.status',
+                'properties.price'
+            );
 
-        if ($request->start_date) {
-            // Logique complexe pour la disponibilité historique si nécessaire
-            // Pour l'instant on filtre sur le statut actuel mais on pourrait imaginer
-            // vérifier si une location existait à cette date
+        if ($request->building_id) {
+            $query->where(function ($q) use ($request) {
+                $q->where('properties.id', $request->building_id)
+                    ->orWhere('properties.parent_id', $request->building_id);
+            });
         }
 
         $data = $query->get();
@@ -169,8 +200,10 @@ class ReportController extends Controller
         // Simples prévisions basées sur les locations actives
         $query = Rental::where('rentals.status', 'active')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
+            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
             ->select(
+                'buildings.title as building_title',
                 'properties.title as property_title',
                 DB::raw(config('database.default') === 'sqlite'
                     ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
@@ -185,6 +218,13 @@ class ReportController extends Controller
 
         if ($request->property_id) {
             $query->where('rentals.property_id', $request->property_id);
+        }
+
+        if ($request->building_id) {
+            $query->where(function ($q) use ($request) {
+                $q->where('properties.id', $request->building_id)
+                    ->orWhere('properties.parent_id', $request->building_id);
+            });
         }
 
         $rentals = $query->get();

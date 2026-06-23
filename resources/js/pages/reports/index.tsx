@@ -28,12 +28,20 @@ import { cn } from "@/lib/utils"
 interface Property {
     id: number
     title: string
+    parent_id: number | null
+}
+
+interface Building {
+    id: number
+    title: string
 }
 
 interface Props {
     properties: Property[]
+    buildings: Building[]
     filters: {
         property_id?: string
+        building_id?: string
         start_date?: string
         end_date?: string
     }
@@ -41,10 +49,12 @@ interface Props {
 
 type ReportType = 'late_payments' | 'revenue' | 'availability' | 'forecast'
 
-export default function ReportsIndex({ properties, filters }: Props) {
+export default function ReportsIndex({ properties, buildings, filters }: Props) {
     const [activeReport, setActiveReport] = React.useState<ReportType>('late_payments')
     const [propertyId, setPropertyId] = React.useState(filters.property_id || "all")
+    const [buildingId, setBuildingId] = React.useState(filters.building_id || "all")
     const [propertyOpen, setPropertyOpen] = React.useState(false)
+    const [buildingOpen, setBuildingOpen] = React.useState(false)
     const [startDate, setStartDate] = React.useState(filters.start_date || "")
     const [endDate, setEndDate] = React.useState(filters.end_date || "")
     const [reportData, setReportData] = React.useState<any[]>([])
@@ -58,6 +68,10 @@ export default function ReportsIndex({ properties, filters }: Props) {
 
             if (propertyId !== "all") {
                 params.append('property_id', propertyId)
+            }
+
+            if (buildingId !== "all") {
+                params.append('building_id', buildingId)
             }
 
             if (startDate) {
@@ -84,7 +98,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
                 setLoading(false)
             }
         }
-    }, [activeReport, propertyId, startDate, endDate])
+    }, [activeReport, propertyId, buildingId, startDate, endDate])
 
     React.useEffect(() => {
         const controller = new AbortController()
@@ -105,6 +119,10 @@ export default function ReportsIndex({ properties, filters }: Props) {
 
         if (propertyId !== "all") {
             params.append('property_id', propertyId)
+        }
+
+        if (buildingId !== "all") {
+            params.append('building_id', buildingId)
         }
 
         if (startDate) {
@@ -129,6 +147,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
     const columns: any = {
         late_payments: [
             { header: "N° Facture", accessor: "invoice_number", sortable: true, sortKey: "invoice_number" },
+            { header: "Immeuble", accessor: (row: any) => row.building_title || "-", sortable: true, sortKey: "building_title" },
             { header: "Bien Immobilier", accessor: "property_title", sortable: true, sortKey: "property_title" },
             { header: "Locataire", accessor: "tenant_name", sortable: true, sortKey: "tenant_name" },
             { header: "Date d'échéance", accessor: (row: any) => new Date(row.due_date).toLocaleDateString(), sortable: true, sortKey: "due_date" },
@@ -136,6 +155,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
             { header: "Montant dû", accessor: (row: any) => formatCurrency(row.amount_due), sortable: true, sortKey: "amount_due" },
         ],
         revenue: [
+            { header: "Immeuble", accessor: (row: any) => row.building_title || "-", sortable: true, sortKey: "building_title" },
             { header: "Bien Immobilier", accessor: "property_title", sortable: true, sortKey: "property_title" },
             { header: "Locataire", accessor: "tenant_name", sortable: true, sortKey: "tenant_name" },
             { header: "Date", accessor: (row: any) => new Date(row.payment_date).toLocaleDateString(), sortable: true, sortKey: "payment_date" },
@@ -144,6 +164,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
             { header: "Montant", accessor: (row: any) => formatCurrency(row.amount), sortable: true, sortKey: "amount" },
         ],
         availability: [
+            { header: "Immeuble", accessor: (row: any) => row.building_title || "-", sortable: true, sortKey: "building_title" },
             { header: "Bien Immobilier", accessor: "title", sortable: true, sortKey: "title" },
             { header: "Type", accessor: "type", sortable: true, sortKey: "type" },
             { header: "Ville", accessor: "city", sortable: true, sortKey: "city" },
@@ -160,6 +181,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
             { header: "Prix", accessor: (row: any) => formatCurrency(row.price), sortable: true, sortKey: "price" },
         ],
         forecast: [
+            { header: "Immeuble", accessor: (row: any) => row.building_title || "-", sortable: true, sortKey: "building_title" },
             { header: "Bien Immobilier", accessor: "property_title", sortable: true, sortKey: "property_title" },
             { header: "Locataire", accessor: "tenant_name", sortable: true, sortKey: "tenant_name" },
             { header: "Période", accessor: "period", sortable: true, sortKey: "period" },
@@ -276,7 +298,68 @@ export default function ReportsIndex({ properties, filters }: Props) {
                         <CardDescription>Affinez les données affichées ci-dessous.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="space-y-2 flex flex-col">
+                                <label className="text-sm font-medium">Immeuble / Bâtiment</label>
+                                <Popover open={buildingOpen} onOpenChange={setBuildingOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={buildingOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {buildingId === "all"
+                                                ? "Tous les immeubles"
+                                                : buildings.find((b) => b.id.toString() === buildingId)?.title || "Sélectionner un immeuble"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Rechercher un immeuble..." />
+                                            <CommandList>
+                                                <CommandEmpty>Aucun immeuble trouvé.</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        value="all"
+                                                        onSelect={() => {
+                                                            setBuildingId("all")
+                                                            setBuildingOpen(false)
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                buildingId === "all" ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        Tous les immeubles
+                                                    </CommandItem>
+                                                    {buildings.map((b) => (
+                                                        <CommandItem
+                                                            key={b.id}
+                                                            value={b.title}
+                                                            onSelect={() => {
+                                                                setBuildingId(b.id.toString())
+                                                                setBuildingOpen(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    buildingId === b.id.toString() ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {b.title}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                             <div className="space-y-2 flex flex-col">
                                 <label className="text-sm font-medium">Bien Immobilier</label>
                                 <Popover open={propertyOpen} onOpenChange={setPropertyOpen}>
@@ -314,7 +397,9 @@ export default function ReportsIndex({ properties, filters }: Props) {
                                                         />
                                                         Tous les biens
                                                     </CommandItem>
-                                                    {properties.map((p) => (
+                                                    {properties
+                                                        .filter(p => buildingId === "all" || p.parent_id?.toString() === buildingId || p.id.toString() === buildingId)
+                                                        .map((p) => (
                                                         <CommandItem
                                                             key={p.id}
                                                             value={p.title}
