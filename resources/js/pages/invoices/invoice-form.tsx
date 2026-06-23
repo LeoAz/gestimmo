@@ -12,13 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 
-interface InvoiceItem {
-  id?: number
-  designation: string
-  period: string | null
-  months_count: number
-  total: number
-}
 
 interface Rental {
   id: number
@@ -167,13 +160,33 @@ export function InvoiceForm({ rentals, initialData, onSubmit, processing, errors
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase text-muted-foreground">Nb. Mois</Label>
-                <Input type="number" value={item.months_count} onChange={(e) => {
-                    const val = parseInt(e.target.value) || 1;
-                    const rental = rentals.find(r => r.id === parseInt(data.rental_id));
-                    const basePrice = rental ? parseFloat(rental.rent_amount) : 0;
-                    updateItem(index, "months_count", val);
-                    updateItem(index, "total", basePrice * val);
-                }} />
+                <Select
+                    value={item.months_count?.toString() || "1"}
+                    onValueChange={(valStr) => {
+                        const val = parseInt(valStr);
+                        const rental = rentals.find((r) => r.id === parseInt(data.rental_id));
+                        const basePrice = rental ? parseFloat(rental.rent_amount) : 0;
+
+                        const newItems = [...data.items];
+                        newItems[index] = {
+                            ...newItems[index],
+                            months_count: val,
+                            total: basePrice * val
+                        };
+                        setData("items", newItems);
+                    }}
+                >
+                    <SelectTrigger>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {[...Array(12)].map((_, i) => (
+                            <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                {i + 1}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase text-muted-foreground">Montant Total</Label>
