@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('invoice_number')->unique();
             $table->date('date');
             $table->date('due_date')->nullable();
-            $table->string('type'); // Loyer, Caution, Frais Locatif, etc.
+            $table->string('type'); // Loyer, Caution, Autres, etc.
             $table->decimal('amount_ht', 15, 2);
             $table->decimal('tax_amount', 15, 2)->default(0);
             $table->decimal('total_amount', 15, 2);

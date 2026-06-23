@@ -42,7 +42,7 @@ export function InvoiceForm({ rentals, initialData, onSubmit, processing, errors
     due_date: "",
     type: "Loyer",
     notes: "",
-    items: [{ designation: "Frais Locatif", period: format(new Date(), "MMMM yyyy", { locale: fr }), months_count: 1, total: 0 }],
+    items: [{ designation: "Loyer", period: format(new Date(), "MMMM yyyy", { locale: fr }), months_count: 1, total: 0 }],
   })
 
   // S'assurer que les données du formulaire sont synchronisées si initialData change (cas de l'édition)
@@ -120,7 +120,6 @@ export function InvoiceForm({ rentals, initialData, onSubmit, processing, errors
               <SelectContent>
                   <SelectItem value="Loyer">Loyer</SelectItem>
                   <SelectItem value="Caution">Caution</SelectItem>
-                  <SelectItem value="Frais Locatif">Frais Locatif</SelectItem>
                   <SelectItem value="Autres">Autres</SelectItem>
               </SelectContent>
           </Select>
