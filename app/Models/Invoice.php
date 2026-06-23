@@ -52,8 +52,7 @@ class Invoice extends Model
         $year = $date->format('Y');
 
         $query = self::whereYear('date', $year)
-            ->whereMonth('date', $month)
-            ->where('invoice_number', 'like', "%/DP/$month/$year");
+            ->where('invoice_number', 'like', "%/DP/%/$year");
 
         if (config('database.default') === 'sqlite') {
             $lastInvoice = $query->orderBy('invoice_number', 'desc')->first();
