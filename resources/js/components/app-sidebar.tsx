@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { BarChart3, Bell, Building2, LayoutGrid, Settings } from 'lucide-react';
 
 import { index as depositsIndex } from '@/actions/App/Http/Controllers/DepositController';
+import { index as invoicesIndex } from '@/actions/App/Http/Controllers/InvoiceController';
 import { index as notificationsIndex } from '@/actions/App/Http/Controllers/NotificationController';
 import { index as paymentsIndex } from '@/actions/App/Http/Controllers/PaymentController';
 import { index as propertyCategoriesIndex } from '@/actions/App/Http/Controllers/PropertyCategoryController';
@@ -63,7 +64,11 @@ const mainNavItems: NavItem[] = [
                 href: tenantsIndex(),
             },
             {
-                title: 'Factures & Paiement',
+                title: 'Factures',
+                href: invoicesIndex(),
+            },
+            {
+                title: 'Encaissements',
                 href: paymentsIndex(),
             },
             {

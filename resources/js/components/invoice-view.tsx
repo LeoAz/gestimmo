@@ -1,193 +1,219 @@
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import * as React from "react"
-import QRCode from "react-qr-code"
-import { Separator } from "@/components/ui/separator"
 
-// @ts-expect-error - QRCode might be in .default depending on build environment
-const QRCodeComponent = (QRCode as any).default || QRCode;
+export interface InvoiceItem {
+    id?: number
+    designation: string
+    period: string | null
+    months_count?: number
+    unit_price?: string | number
+    quantity?: string | number
+    total: string | number
+}
 
-export interface Payment {
-  id: number
-  amount: string
-  payment_date: string
-  period_start: string
-  period_end: string
-  invoice_number: string
-  type: string
-  status: 'pending' | 'paid'
-  notes: string | null
-  rental: {
-    rent_amount: string
-    payment_frequency: string
-    property: {
-      title: string
+export interface Invoice {
+    id: number
+    invoice_number: string
+    date: string
+    due_date: string | null
+    type: string
+    amount_ht: string | number
+    tax_amount: string | number
+    total_amount: string | number
+    status: string
+    notes: string | null
+    rental: {
+        property: {
+            title: string
+        }
+        tenant: {
+            first_name: string
+            last_name: string
+            phone: string
+            address: string | null
+        }
     }
-    tenant: {
-      first_name: string
-      last_name: string
-      phone: string
-      address: string | null
+    items?: InvoiceItem[]
+    invoice?: {
+        items?: InvoiceItem[]
     }
-  }
 }
 
 interface Props {
-  payment: Payment
-  printMode?: "standard" | "receipt"
-  organization?: {
-    name: string
-    address: string | null
-    phone: string | null
-    email: string | null
-    tax_number: string | null
-    registration_number: string | null
-    city: string | null
-    country: string | null
-    logo_url?: string | null
-  }
+    invoice: Invoice
 }
 
-export function InvoiceView({ payment, printMode = "standard", organization }: Props) {
-  const formatCurrency = (amount: string | number) => {
-    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(amount))
-  }
+export function InvoiceView({ invoice }: Props) {
+    const formatCurrency = (amount: string | number) => {
+        return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(amount))
+    }
 
-  const qrData = JSON.stringify({
-    tenant: `${payment.rental.tenant.first_name} ${payment.rental.tenant.last_name}`,
-    property: payment.rental.property.title,
-    amount: payment.amount,
-    date: payment.payment_date,
-    invoice: payment.invoice_number
-  })
+    const numberToWords = (num: number) => {
+        const units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"];
+        const tens = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante-dix", "quatre-vingt", "quatre-vingt-dix"];
+        const scales = ["", "mille", "million", "milliard"];
 
-  return (
-    <div className={`bg-white ${printMode === 'receipt' ? 'max-w-[80mm] mx-auto p-4' : 'p-4 sm:p-8'}`}>
-      {/* Header */}
-      <div className={`flex flex-col ${printMode === 'receipt' ? 'items-center text-center mb-6' : 'sm:flex-row justify-between items-start gap-8 mb-12'}`}>
-        <div className="flex flex-col gap-4">
-          {organization?.logo_url && (
-            <div className={`${printMode === 'receipt' ? 'w-16 h-16' : 'w-24 h-24'} overflow-hidden rounded mb-2`}>
-              <img src={organization.logo_url} alt="Logo" className="w-full h-full object-contain object-left" />
+        if (num === 0) return "zéro";
+
+        const convertChunk = (n: number): string => {
+            let chunk = "";
+            if (n >= 100) {
+                const hundreds = Math.floor(n / 100);
+                chunk += (hundreds > 1 ? units[hundreds] + " " : "") + "cent ";
+                n %= 100;
+            }
+            if (n >= 20) {
+                const t = Math.floor(n / 10);
+                const u = n % 10;
+                if (t === 7 || t === 9) {
+                    chunk += tens[t - 1] + "-" + (u === 1 ? "et-" : "") + (u === 0 ? "dix" : units[u + 10] || "dix-" + units[u]);
+                } else {
+                    chunk += tens[t] + (u === 1 ? "-et-" : u > 0 ? "-" : "") + units[u];
+                }
+            } else if (n >= 10) {
+                const special = ["dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
+                chunk += special[n - 10];
+            } else if (n > 0) {
+                chunk += units[n];
+            }
+            return chunk.trim();
+        };
+
+        let word = "";
+        let scaleIndex = 0;
+        let tempNum = num;
+
+        while (tempNum > 0) {
+            const chunk = tempNum % 1000;
+            if (chunk > 0) {
+                const chunkText = convertChunk(chunk);
+                const scaleText = scales[scaleIndex];
+                word = chunkText + (scaleText ? " " + scaleText : "") + (word ? " " + word : "");
+            }
+            tempNum = Math.floor(tempNum / 1000);
+            scaleIndex++;
+        }
+
+        const result = word.trim();
+        return result.charAt(0).toUpperCase() + result.slice(1);
+    }
+
+    const items = invoice.items || invoice.invoice?.items || []
+
+    return (
+        <div className="bg-white p-8 mx-auto max-w-[210mm] text-sm text-gray-800 font-sans print:p-8 print:m-0 print:max-w-none print:text-[12px] break-inside-avoid">
+            {/* Logo and Company Name */}
+            <div className="flex justify-between items-start mb-8">
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 font-bold text-2xl">
+                        <span className="p-1 border-2 border-gray-800 rounded">DP</span>
+                        <span>DJIGUE <br/><span className="text-xs font-normal">PROPERTIES</span></span>
+                    </div>
+                </div>
             </div>
-          )}
-          <div>
-            <h1 className={`${printMode === 'receipt' ? 'text-xl' : 'text-3xl'} font-bold tracking-tight text-primary mb-2`}>
-              {organization?.name || 'IMO-APP'}
-            </h1>
-            <p className="text-gray-500 text-xs">{organization?.name ? 'Gestion Immobilière' : 'Gestion Immobilière Moderne'}</p>
-            <div className="mt-4 text-xs space-y-1">
-              <p>{organization?.address || '123 Rue de l\'Immobilier'}</p>
-              <p>{organization?.city ? `${organization.city}, ${organization.country || ''}` : 'Dakar, Sénégal'}</p>
-              <p>{organization?.phone || '+221 33 000 00 00'}</p>
-              {organization?.email && <p>{organization.email}</p>}
-              {organization?.tax_number && <p className="mt-2 font-semibold">IFU: {organization.tax_number}</p>}
-              {organization?.registration_number && <p className="font-semibold">RCCM: {organization.registration_number}</p>}
+
+            {/* Invoice Header */}
+            <div className="mb-6 flex justify-between items-end">
+                <div>
+                    <span className="font-bold">FACTURE N°</span>
+                    <span className="ml-4">{invoice.invoice_number}</span>
+                </div>
+                <div className="text-xl font-serif italic pr-20">
+                    {invoice.rental.property.title}
+                </div>
             </div>
-          </div>
+
+            {/* Date and Address Section */}
+            <div className="grid grid-cols-2 gap-0 border border-gray-400 mb-6">
+                <div className="p-2 border-r border-gray-400">
+                    <span className="font-bold">Date : </span>
+                    <span>{format(new Date(invoice.date), "dd/MM/yyyy")}</span>
+                </div>
+                <div className="p-2">
+                    <div className="font-bold mb-2 underline">Adressé</div>
+                    <div className="space-y-1">
+                        <div><span className="font-bold">Client : </span>{invoice.rental.tenant.first_name} {invoice.rental.tenant.last_name}</div>
+                        <div><span className="font-bold">Adresse : </span>{invoice.rental.tenant.address || "N/A"} - TEL : {invoice.rental.tenant.phone}</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Table */}
+            <table className="w-full border-collapse border border-gray-400 mb-0">
+                <thead>
+                    <tr className="border-b border-gray-400 bg-gray-50">
+                        <th className="border-r border-gray-400 p-2 text-left font-bold uppercase text-[10px]">Appartement / Bien</th>
+                        <th className="border-r border-gray-400 p-2 text-left font-bold uppercase text-[10px]">Désignation</th>
+                        <th className="border-r border-gray-400 p-2 text-left font-bold uppercase text-[10px]">Période</th>
+                        <th className="border-r border-gray-400 p-2 text-left font-bold uppercase text-[10px]">Mois</th>
+                        <th className="p-2 text-left font-bold uppercase text-[10px]">Montant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map((item, index) => (
+                        <tr key={index} className="h-16 print:h-12 align-top">
+                            <td className="border-r border-gray-400 p-2">{index === 0 ? invoice.rental.property.title : ""}</td>
+                            <td className="border-r border-gray-400 p-2">{item.designation}</td>
+                            <td className="border-r border-gray-400 p-2">{item.period}</td>
+                            <td className="border-r border-gray-400 p-2 text-center">{item.months_count || 1}</td>
+                            <td className="p-2 font-medium">{formatCurrency(item.total)}</td>
+                        </tr>
+                    ))}
+                    {/* Empty space filler if needed */}
+                    <tr className="h-24 print:h-16">
+                        <td className="border-r border-gray-400"></td>
+                        <td className="border-r border-gray-400"></td>
+                        <td className="border-r border-gray-400"></td>
+                        <td className="border-r border-gray-400"></td>
+                        <td></td>
+                    </tr>
+                    <tr className="border-t border-gray-400 bg-gray-50">
+                        <td colSpan={4} className="border-r border-gray-400 p-2 text-right font-bold uppercase">TOTAL HT</td>
+                        <td className="p-2 font-bold">{formatCurrency(invoice.total_amount)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div className="mt-4 mb-12">
+                <p>Arrêtée la présente facture à la somme de : <span className="font-serif italic font-medium">{numberToWords(Number(invoice.total_amount))} Francs CFA HT</span></p>
+            </div>
+
+            {/* Footer with Signatures and Bank Details */}
+            <div className="grid grid-cols-2 gap-8 mt-8 mb-12 print:mt-4 print:mb-6">
+                <div className="text-center">
+                    <div className="font-bold mb-16 underline uppercase">Pour Acquit</div>
+                </div>
+                <div className="text-center">
+                    <div className="font-bold mb-16 underline uppercase">LE GERANT</div>
+                </div>
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-gray-200 print:mt-4">
+                <div className="text-[10px] grid grid-cols-2 gap-8">
+                    <div>
+                        <div className="font-bold underline mb-1">Informations bancaires :</div>
+                        <div className="grid grid-cols-[100px_1fr] gap-x-2">
+                            <span className="font-bold">BANK :</span> <span>CORIS BANK</span>
+                            <span className="font-bold">TITULAIRE DU COMPTE :</span> <span>DJIGUE PROPERTIES SARLU</span>
+                            <span className="font-bold">Code Banque :</span> <span>ML181</span>
+                            <span className="font-bold">Agence :</span> <span>01007</span>
+                            <span className="font-bold">Compte :</span> <span>003221124101</span>
+                            <span className="font-bold">Clé Rib :</span> <span>10</span>
+                            <span className="font-bold">Code IBAN :</span> <span>ML18 1010 0700 3221 1241 0110</span>
+                            <span className="font-bold">Code SWIFT :</span> <span>CORIMLBA</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col justify-end text-center italic text-gray-500">
+                        {/* Mention supprimée à la demande de l'utilisateur */}
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-gray-200 text-center text-[10px] text-gray-500 print:mt-4 print:pt-2">
+                <div>DJIGUE PROPERTIES Sarlu</div>
+                <div>Daoudabougou, Face Hôtel des Colibris, Bamako - Mali / +223 66 75 84 42 / 90 86 86 86 ousmane@djigueproperties.com</div>
+                <div>RCCM N° MA.BKO.2023.B.4040 - NIF : 084151646T</div>
+            </div>
         </div>
-
-        <div className={`${printMode === 'receipt' ? 'mt-6 w-full' : 'text-right sm:text-right w-full sm:w-auto'}`}>
-          <h2 className={`${printMode === 'receipt' ? 'text-sm font-bold border-y py-2 my-4' : 'text-xl font-semibold text-gray-900 mb-1'}`}>
-            {payment.status === 'paid' ? 'REÇU DE PAIEMENT' : 'FACTURE'}
-          </h2>
-          <p className="text-gray-500 font-medium mb-4 text-sm">{payment.invoice_number}</p>
-          <div className={`flex ${printMode === 'receipt' ? 'justify-center' : 'justify-end'}`}>
-              <div className="bg-white p-1 border rounded-md">
-                  <QRCodeComponent value={qrData} size={printMode === 'receipt' ? 60 : 80} />
-              </div>
-          </div>
-        </div>
-      </div>
-
-      {printMode === 'standard' && <Separator />}
-
-      {/* Bill To / Info */}
-      <div className={`${printMode === 'receipt' ? 'space-y-4 my-6 text-sm border-b pb-6' : 'grid grid-cols-1 sm:grid-cols-2 gap-12 my-10'}`}>
-        <div>
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Locataire</h3>
-          <p className={`${printMode === 'receipt' ? 'text-base' : 'text-lg'} font-bold text-gray-900`}>{payment.rental.tenant.first_name} {payment.rental.tenant.last_name}</p>
-          <p className="text-gray-600">{payment.rental.tenant.phone}</p>
-          {payment.rental.tenant.address && printMode === 'standard' && <p className="text-gray-600 max-w-xs">{payment.rental.tenant.address}</p>}
-        </div>
-
-        <div>
-          <div className={`${printMode === 'receipt' ? 'space-y-2' : 'grid grid-cols-2 gap-4'}`}>
-              <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Date de paiement</h3>
-                  <p className="font-semibold">{format(new Date(payment.payment_date), printMode === 'receipt' ? "dd/MM/yyyy" : "dd MMMM yyyy", { locale: fr })}</p>
-              </div>
-              <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Période</h3>
-                  <p className="font-semibold text-xs">
-                      {payment.type === 'deposit' ? 'N/A' : format(new Date(payment.period_start), "MMMM yyyy", { locale: fr })}
-                  </p>
-              </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className={`${printMode === 'receipt' ? 'mt-4' : 'mt-12'}`}>
-        <table className="w-full text-left">
-          {printMode === 'standard' && (
-              <thead>
-              <tr className="border-b border-gray-200">
-                  <th className="py-4 text-xs font-bold uppercase tracking-wider text-gray-400">Description</th>
-                  <th className="py-4 text-right text-xs font-bold uppercase tracking-wider text-gray-400">Total</th>
-              </tr>
-              </thead>
-          )}
-          <tbody className={`${printMode === 'standard' ? 'divide-y divide-gray-100' : ''}`}>
-            <tr>
-              <td className={`${printMode === 'receipt' ? 'py-2' : 'py-6'}`}>
-                <p className={`font-bold text-gray-900 ${printMode === 'receipt' ? 'text-sm' : ''}`}>
-                  {payment.type === 'deposit' ? 'Caution' : 'Loyer'} - {payment.rental.property.title}
-                </p>
-                {printMode === 'standard' && (
-                  <p className="text-sm text-gray-500 mt-1">
-                      Fréquence: {payment.rental.payment_frequency === 'monthly' ? 'Mensuelle' :
-                                 payment.rental.payment_frequency === 'quarterly' ? 'Trimestrielle' :
-                                 payment.rental.payment_frequency === 'semiannual' ? 'Semestrielle' :
-                                 payment.rental.payment_frequency}
-                  </p>
-                )}
-              </td>
-              <td className={`${printMode === 'receipt' ? 'py-2' : 'py-6'} text-right font-semibold text-gray-900 ${printMode === 'receipt' ? 'text-sm' : ''}`}>
-                {formatCurrency(payment.amount)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Totals */}
-      <div className={`${printMode === 'receipt' ? 'mt-4 border-t pt-4' : 'mt-8 flex justify-end'}`}>
-        <div className={`space-y-2 ${printMode === 'standard' ? 'w-full sm:w-64' : 'w-full text-sm'}`}>
-          {printMode === 'standard' && (
-              <>
-                  <div className="flex justify-between text-gray-600">
-                      <span>Sous-total</span>
-                      <span>{formatCurrency(payment.amount)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                      <span>Taxe (0%)</span>
-                      <span>{formatCurrency(0)}</span>
-                  </div>
-              </>
-          )}
-          <div className={`flex justify-between ${printMode === 'standard' ? 'border-t border-gray-200 pt-3 text-lg font-bold text-gray-900' : 'font-bold text-base'}`}>
-            <span>TOTAL PAYÉ</span>
-            <span>{formatCurrency(payment.amount)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className={`${printMode === 'receipt' ? 'mt-8 pt-4 border-t border-dashed' : 'mt-20 pt-10 border-t border-gray-100'} text-center`}>
-        <p className="text-gray-500 text-[10px]">Merci de votre confiance.</p>
-        <p className="text-gray-400 text-[9px] mt-1 italic">Reçu officiel généré électroniquement.</p>
-      </div>
-    </div>
-  )
+    )
 }

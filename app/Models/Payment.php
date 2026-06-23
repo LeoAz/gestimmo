@@ -11,6 +11,7 @@ class Payment extends Model
 
     protected $fillable = [
         'rental_id',
+        'invoice_id',
         'amount',
         'months_count',
         'payment_date',
@@ -35,5 +36,10 @@ class Payment extends Model
     public function rental()
     {
         return $this->belongsTo(Rental::class);
+    }
+
+    public function invoice()
+    {
+        return $this->belongsTo(Invoice::class);
     }
 }

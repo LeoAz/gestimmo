@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Invoice;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Rental;
@@ -54,9 +55,9 @@ class PaymentController extends Controller
         }
 
         return Inertia::render('payments/index', [
-            'payments' => $payments,
+            'payments' => Payment::with(['rental.property', 'rental.tenant', 'invoice.items'])->orderByDesc('payment_date')->get(),
             'futurePayments' => $futurePayments,
-            'debts' => $debts,
+            'debts' => Invoice::with(['rental.property', 'rental.tenant', 'items'])->where('status', '!=', 'paid')->get(),
             'filters' => $request->only(['search', 'status']),
             'organization' => $organization,
         ]);
@@ -71,7 +72,7 @@ class PaymentController extends Controller
         }
 
         return Inertia::render('payments/invoice', [
-            'payment' => $payment->load(['rental.property', 'rental.tenant']),
+            'payment' => $payment->load(['rental.property', 'rental.tenant', 'invoice.items']),
             'organization' => $organization,
         ]);
     }
@@ -79,78 +80,54 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'rental_id' => 'required|exists:rentals,id',
-            'payment_id' => 'nullable|exists:payments,id',
+            'invoice_id' => 'required|exists:invoices,id',
             'amount' => 'required|numeric|min:0',
-            'months_count' => 'required|integer|min:0',
-            'payment_date' => 'nullable|date',
-            'payment_method' => 'nullable|string|in:cash,bank_transfer,mobile_money,balance',
-            'status' => 'required|string|in:pending,paid',
-            'type' => 'required|string|in:rent,deposit,other',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money,balance',
             'notes' => 'nullable|string',
         ]);
 
-        $rental = Rental::with('tenant')->findOrFail($validated['rental_id']);
+        $invoice = Invoice::with(['rental.tenant', 'items'])->findOrFail($validated['invoice_id']);
+        $rental = $invoice->rental;
 
-        // Si on spécifie une facture existante (encaissement lié)
-        if (! empty($validated['payment_id'])) {
-            $payment = Payment::findOrFail($validated['payment_id']);
-
-            if ($payment->status === 'paid') {
-                return back()->with('error', 'Cette facture est déjà payée.');
-            }
-
-            if ($validated['status'] === 'paid' && $validated['payment_method'] === 'balance') {
-                if ($rental->tenant->balance < $payment->amount) {
-                    return back()->with('error', 'Le solde du locataire est insuffisant.');
-                }
-                $rental->tenant->decrement('balance', $payment->amount);
-            }
-
-            $payment->update([
-                'status' => $validated['status'],
-                'payment_date' => $validated['status'] === 'paid' ? ($validated['payment_date'] ?? now()) : now(),
-                'payment_method' => $validated['payment_method'],
-                'notes' => $validated['notes'] ?? $payment->notes,
-            ]);
-
-            $this->updateRentalNextPaymentDate($rental);
-
-            return back()->with('success', 'Paiement de la facture enregistré.');
+        if ($invoice->status === 'paid') {
+            return back()->with('error', 'Cette facture est déjà payée.');
         }
 
-        if ($validated['status'] === 'paid' && $validated['payment_method'] === 'balance') {
+        if ($validated['payment_method'] === 'balance') {
             if ($rental->tenant->balance < $validated['amount']) {
                 return back()->with('error', 'Le solde du locataire est insuffisant.');
             }
-
             $rental->tenant->decrement('balance', $validated['amount']);
         }
 
-        // Déterminer la période actuelle
-        $periodStart = $rental->next_payment_date;
-        $periodEnd = Carbon::parse($periodStart)->addMonths($validated['months_count'])->subDay();
-
         $payment = Payment::create([
             'rental_id' => $rental->id,
+            'invoice_id' => $invoice->id,
             'amount' => $validated['amount'],
-            'months_count' => $validated['months_count'],
-            'payment_date' => $validated['status'] === 'paid' ? ($validated['payment_date'] ?? now()) : now(),
+            'payment_date' => $validated['payment_date'],
             'payment_method' => $validated['payment_method'],
-            'period_start' => $periodStart,
-            'period_end' => $periodEnd,
-            'type' => $validated['type'],
-            'status' => $validated['status'],
-            'invoice_number' => ($validated['type'] === 'deposit' ? 'DEP-' : 'INV-').strtoupper(uniqid('', true)),
+            'type' => $invoice->type,
+            'status' => 'paid',
+            'invoice_number' => $invoice->invoice_number,
             'notes' => $validated['notes'] ?? null,
+            'period_start' => $invoice->items->first()?->period_start ?? null,
+            'period_end' => $invoice->items->first()?->period_end ?? null,
         ]);
 
-        // Recalculer la prochaine date de paiement de la location (incluant les factures en attente)
+        // Mettre à jour le statut de la facture si le montant total est atteint
+        // (Pour l'instant on considère un paiement unique pour simplifier,
+        // sinon il faudrait comparer la somme des paiements au total de la facture)
+        $totalPaid = $invoice->payments()->where('status', 'paid')->sum('amount') + $validated['amount'];
+        if ($totalPaid >= $invoice->total_amount) {
+            $invoice->update(['status' => 'paid']);
+        } else {
+            $invoice->update(['status' => 'partial']);
+        }
+
         $this->updateRentalNextPaymentDate($rental);
 
-        $message = $payment->status === 'paid' ? 'Paiement enregistré.' : 'Facture (créance) générée.';
-
-        return back()->with('success', $message);
+        return back()->with('success', 'Encaissement enregistré avec succès.');
     }
 
     public function markAsPaid(Request $request, Payment $payment)

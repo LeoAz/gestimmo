@@ -1,22 +1,19 @@
-import { Head, Link, useForm, usePage } from "@inertiajs/react"
+import { Head, Link, useForm } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { CalendarIcon, CheckCircle2, CreditCard, History, Printer, ArrowLeft, User, Home, Info, AlertCircle, XCircle } from "lucide-react"
+import { AlertCircle, ArrowLeft, CalendarIcon, Eye, FileText, History, Home, Info, Printer, User, XCircle } from "lucide-react"
 import * as React from "react"
-import { toast } from "sonner"
 
 import { DataTable } from "@/components/data-table"
-import { FormAlert } from "@/components/form-alert"
-import { InvoiceView } from "@/components/invoice-view"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import AppLayout from "@/layouts/app-layout"
 import { cn } from "@/lib/utils"
@@ -32,6 +29,30 @@ interface Payment {
   status: 'pending' | 'paid'
   invoice_number: string
   notes: string | null
+}
+
+interface InvoiceItem {
+    id: number
+    designation: string
+    period: string | null
+    months_count: number | null
+    unit_price: string
+    quantity: string
+    total: string
+}
+
+interface Invoice {
+    id: number
+    invoice_number: string
+    date: string
+    due_date: string | null
+    type: string
+    amount_ht: string
+    total_amount: string
+    status: string
+    notes: string | null
+    items: InvoiceItem[]
+    rental: Rental
 }
 
 interface Rental {
@@ -58,40 +79,16 @@ interface Rental {
       balance: string
   }
   payments: Payment[]
+  invoices: Invoice[]
 }
 
 interface Props {
   rental: Rental
   organization?: any
 }
-export default function Show({ rental, organization }: Props) {
-  const { flash } = usePage<any>().props
-  const pageErrors = usePage().props.errors
-  const { data, setData, post, patch, processing, errors, reset } = useForm({
-    rental_id: rental.id,
-    payment_id: "",
-    amount: rental.rent_amount,
-    months_count: 1,
-    payment_date: new Date(),
-    payment_method: "cash",
-    status: "paid",
-    type: "rent",
-    notes: "",
-  })
-
+export default function Show({ rental }: Props) {
   const [selectedPendingPayment, setSelectedPendingPayment] = React.useState<Payment | null>(null)
-  const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null)
-  const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
-  const [showAdvanceDialog, setShowAdvanceDialog] = React.useState(false)
   const [showTerminationDialog, setShowTerminationDialog] = React.useState(false)
-
-  const advanceForm = useForm({
-    rental_id: rental.id,
-    amount: "",
-    payment_date: new Date(),
-    payment_method: "cash",
-    notes: "Avance sur compte",
-  })
 
   const markAsPaidForm = useForm({
     payment_date: new Date(),
@@ -103,21 +100,6 @@ export default function Show({ rental, organization }: Props) {
     termination_reason: "",
   })
 
-  const handleSubmitPayment = (e: React.FormEvent) => {
-    e.preventDefault()
-    post("/payments", {
-      transform: (data) => ({
-        ...data,
-        payment_date: data.status === 'paid' ? (data.payment_date ? format(data.payment_date, "yyyy-MM-dd") : null) : format(new Date(), "yyyy-MM-dd"),
-      }),
-      onSuccess: () => {
-        toast.success(data.status === 'paid' ? "Paiement enregistré avec succès" : "Facture (créance) générée")
-        reset("notes", "months_count", "payment_id")
-        setData("amount", rental.rent_amount)
-      },
-    })
-  }
-
   const handleMarkAsPaid = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -125,32 +107,17 @@ export default function Show({ rental, organization }: Props) {
         return
     }
 
-    patch(`/payments/${selectedPendingPayment.id}/mark-as-paid`, {
+    markAsPaidForm.patch(`/payments/${selectedPendingPayment.id}/mark-as-paid`, {
       transform: (data) => ({
         ...data,
         payment_date: format(data.payment_date, "yyyy-MM-dd"),
       }),
       onSuccess: () => {
-        toast.success("Facture marquée comme payée")
         setSelectedPendingPayment(null)
       },
     })
   }
 
-  const handleSubmitAdvance = (e: React.FormEvent) => {
-    e.preventDefault()
-    advanceForm.post("/payments/advance", {
-      transform: (data) => ({
-        ...data,
-        payment_date: format(data.payment_date, "yyyy-MM-dd"),
-      }),
-      onSuccess: () => {
-        toast.success("Avance enregistrée avec succès")
-        setShowAdvanceDialog(false)
-        advanceForm.reset()
-      },
-    })
-  }
 
   const handleSubmitTermination = (e: React.FormEvent) => {
     e.preventDefault()
@@ -160,7 +127,6 @@ export default function Show({ rental, organization }: Props) {
         termination_date: format(data.termination_date, "yyyy-MM-dd"),
       }),
       onSuccess: () => {
-        toast.success("Contrat résilié avec succès")
         setShowTerminationDialog(false)
       },
     })
@@ -174,77 +140,119 @@ export default function Show({ rental, organization }: Props) {
 
   const paymentColumns = [
     {
-      header: "Facture",
+      header: "Encaissement",
       accessor: "invoice_number" as const,
       className: "font-mono text-xs",
-      sortable: true,
-      sortKey: "invoice_number" as any
     },
     {
-      header: "Période",
-      accessor: (row: any) => (
-        <span className="text-xs">
-          {format(new Date(row.period_start), "dd/MM/yy")} au {format(new Date(row.period_end), "dd/MM/yy")}
-        </span>
-      ),
+      header: "Date",
+      accessor: (row: any) => row.payment_date ? format(new Date(row.payment_date), "dd/MM/yyyy") : "-",
     },
     {
       header: "Montant",
       accessor: (row: any) => (
-        <div className="text-right">
+        <div className="text-right font-semibold">
           {formatCurrency(row.amount)}
         </div>
       ),
-      sortable: true,
-      sortKey: "amount" as any,
       className: "text-right"
     },
     {
-      header: "Statut",
+      header: "Méthode",
       accessor: (row: any) => (
-        <Badge variant={row.status === 'paid' ? 'default' : 'destructive'} className="text-[10px] uppercase font-bold">
-          {row.status === 'paid' ? 'Payé' : 'Impayé'}
-        </Badge>
-      ),
-      sortable: true,
-      sortKey: "status" as any
-    },
-    {
-      header: "Paiement",
-      accessor: (row: any) => (
-        <div className="text-xs">
-           <div>{row.payment_date ? format(new Date(row.payment_date), "dd/MM/yyyy") : "-"}</div>
-           {row.payment_method && (
-              <div className="text-muted-foreground italic">
-                {row.payment_method === 'cash' ? 'Espèces' :
-                 row.payment_method === 'bank_transfer' ? 'Virement' :
-                 row.payment_method === 'balance' ? 'Solde/Avance' : 'Mobile Money'}
-              </div>
-            )}
-        </div>
+        <span className="text-xs italic text-muted-foreground">
+          {row.payment_method === 'cash' ? 'Espèces' :
+           row.payment_method === 'bank_transfer' ? 'Virement' :
+           row.payment_method === 'balance' ? 'Solde/Avance' : 'Mobile Money'}
+        </span>
       ),
     },
     {
       header: "Actions",
       accessor: (row: any) => (
         <div className="flex justify-end gap-2">
-          {row.status === 'pending' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2"
-              onClick={() => setSelectedPendingPayment(row)}
-            >
-              Payer
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedPayment(row)}>
-              <Printer className="h-4 w-4" />
-          </Button>
+          {/* Action d'impression supprimée car gérée au niveau de la facture */}
         </div>
       ),
       className: "text-right"
     }
+  ]
+
+  const invoiceColumns = [
+      {
+          header: "N° Facture",
+          accessor: (row: Invoice) => <span className="font-mono font-medium">{row.invoice_number}</span>
+      },
+      {
+          header: "Date",
+          accessor: (row: Invoice) => format(new Date(row.date), "dd/MM/yyyy")
+      },
+      {
+        header: "Période",
+        accessor: (row: Invoice) => (
+            <div className="flex flex-col text-[11px] leading-tight text-muted-foreground">
+                {row.items?.map((item, idx) => (
+                    <span key={idx} className="block">{item.period || '-'}</span>
+                ))}
+            </div>
+        )
+      },
+      {
+        header: "Mois",
+        accessor: (row: Invoice) => (
+            <div className="text-center font-medium">
+                {row.items?.map((item, idx) => (
+                    <span key={idx} className="block">{item.months_count || '-'}</span>
+                ))}
+            </div>
+        )
+      },
+      {
+          header: "Type",
+          accessor: (row: Invoice) => (
+              <Badge variant="outline">{row.type}</Badge>
+          )
+      },
+      {
+          header: "Montant",
+          accessor: (row: Invoice) => (
+              <div className="text-right font-semibold">
+                  {formatCurrency(row.total_amount)}
+              </div>
+          ),
+          className: "text-right"
+      },
+      {
+          header: "Statut",
+          accessor: (row: Invoice) => (
+              <Badge variant={row.status === 'paid' ? 'success' : 'destructive'} className="text-[10px] uppercase font-bold">
+                  {row.status === 'paid' ? 'Payée' : row.status === 'partial' ? 'Partiel' : 'En attente'}
+              </Badge>
+          )
+      },
+      {
+          header: "Actions",
+          accessor: (row: Invoice) => (
+              <div className="flex justify-end gap-2">
+                  {row.status !== 'paid' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        asChild
+                      >
+                        <Link href="/payments">Encaisser</Link>
+                      </Button>
+                  )}
+                  <Link href={`/invoices/${row.id}`}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Eye className="h-4 w-4" />
+                    </Button>
+                  </Link>
+              </div>
+          ),
+          className: "text-right"
+      }
   ]
 
   return (
@@ -386,223 +394,36 @@ export default function Show({ rental, organization }: Props) {
                 </div>
             </div>
 
-            {/* Payment Recording Form Section */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                Enregistrement de paiement
-              </h2>
-              <div className="rounded-2xl border bg-card p-6">
-                <FormAlert message={errors.error || pageErrors?.error || flash?.error || flash?.success} />
-                <form onSubmit={handleSubmitPayment} className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-4">
-                    {data.status === "paid" && (
-                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <Label htmlFor="payment_id" className="font-semibold text-primary">Facture concernée</Label>
-                        <Select
-                          value={data.payment_id || "none"}
-                          onValueChange={(value) => {
-                            if (value && value !== "none") {
-                              const p = rental.payments.find(p => p.id.toString() === value);
+            <Tabs defaultValue="invoices" className="w-full">
+                <TabsList className="mb-4">
+                    <TabsTrigger value="invoices" className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Historique des Factures
+                    </TabsTrigger>
+                    <TabsTrigger value="payments" className="flex items-center gap-2">
+                        <History className="h-4 w-4" />
+                        Historique des Encaissements
+                    </TabsTrigger>
+                </TabsList>
 
-                              if (p) {
-                                setData(prev => ({
-                                  ...prev,
-                                  amount: p.amount,
-                                  months_count: Number(p.amount) / Number(rental.rent_amount),
-                                  payment_id: value
-                                }));
-                              }
-                            } else {
-                              setData(prev => ({
-                                ...prev,
-                                amount: rental.rent_amount,
-                                months_count: 1,
-                                payment_id: ""
-                              }));
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-11 border-primary/50 bg-primary/5">
-                            <SelectValue placeholder="Nouvelle facture" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">-- Nouvelle facture --</SelectItem>
-                            {rental.payments.filter(p => p.status === 'pending').map(p => (
-                              <SelectItem key={p.id} value={p.id.toString()}>
-                                {p.invoice_number} ({formatCurrency(p.amount)})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="months_count" className="font-semibold">Nombre de mois</Label>
-                      <Input
-                        id="months_count"
-                        name="months_count"
-                        type="number"
-                        min="1"
-                        value={data.months_count}
-                        disabled={!!data.payment_id}
-                        onChange={(e) => {
-                          const count = parseInt(e.target.value) || 1
-                          setData((prev) => ({
-                            ...prev,
-                            months_count: count,
-                            amount: (count * Number(rental.rent_amount)).toString()
-                          }))
-                        }}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="amount" className="font-semibold">Montant (XOF)</Label>
-                      <Input
-                        id="amount"
-                        name="amount"
-                        type="number"
-                        value={data.amount}
-                        disabled={!!data.payment_id}
-                        onChange={(e) => setData("amount", e.target.value)}
-                        required
-                        className="h-11 text-lg font-bold"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="status" className="font-semibold">Nature de l'opération</Label>
-                      <Select
-                        value={data.status}
-                        onValueChange={(value: any) => {
-                          setData(prev => ({
-                            ...prev,
-                            status: value,
-                            payment_id: value === "pending" ? "" : prev.payment_id,
-                            // Si on passe en pending, on remet les valeurs par défaut si une facture était sélectionnée
-                            amount: value === "pending" && prev.payment_id ? rental.rent_amount : prev.amount,
-                            months_count: value === "pending" && prev.payment_id ? 1 : prev.months_count,
-                          }))
-                        }}
-                        disabled={!!data.payment_id}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Choisir le statut" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="paid">Paiement immédiat (Reçu)</SelectItem>
-                          <SelectItem value="pending">Facturer (Créance)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="type" className="font-semibold">Type de facture</Label>
-                      <Select
-                        value={data.type}
-                        onValueChange={(value: any) => {
-                          setData(prev => ({
-                            ...prev,
-                            type: value,
-                            amount: value === "deposit" ? rental.deposit_amount : (value === "rent" ? (prev.months_count * Number(rental.rent_amount)).toString() : prev.amount),
-                            months_count: value === "deposit" ? 0 : (value === "rent" ? prev.months_count : 0)
-                          }))
-                        }}
-                        disabled={!!data.payment_id}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Choisir le type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rent">Loyer</SelectItem>
-                          <SelectItem value="deposit">Facture caution</SelectItem>
-                          <SelectItem value="other">Autre</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {data.status === "paid" && (
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="space-y-2">
-                        <Label htmlFor="payment_date" className="font-semibold">Date de réception</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full justify-start text-left font-normal h-11",
-                                !data.payment_date && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {data.payment_date ? format(data.payment_date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={data.payment_date}
-                              onSelect={(date) => date && setData("payment_date", date)}
-                              initialFocus
-                              locale={fr}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="payment_method" className="font-semibold">Moyen de règlement</Label>
-                        <Select value={data.payment_method} onValueChange={(value) => setData("payment_method", value)}>
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder="Moyen de paiement" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cash">Espèces</SelectItem>
-                            <SelectItem value="bank_transfer">Virement Bancaire</SelectItem>
-                            <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                            <SelectItem value="balance" disabled={Number(rental.tenant.balance) <= 0}>
-                              Solde disponible ({formatCurrency(rental.tenant.balance)})
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes" className="font-semibold">Notes / Observations</Label>
-                    <Input
-                      id="notes"
-                      value={data.notes}
-                      onChange={(e) => setData("notes", e.target.value)}
-                      placeholder="Information complémentaire sur ce paiement..."
-                      className="h-11"
+                <TabsContent value="invoices" className="space-y-4">
+                    <DataTable
+                        columns={invoiceColumns}
+                        data={rental.invoices}
+                        searchKey="invoice_number"
+                        emptyMessage="Aucune facture générée pour cette location."
                     />
-                  </div>
-                  <Button type="submit" disabled={processing} className="w-full h-12 text-md font-bold transition-all shadow-md hover:shadow-lg">
-                    {data.status === 'paid' ? (
-                      <><CheckCircle2 className="mr-2 h-5 w-5" /> Valider l'encaissement</>
-                    ) : (
-                      <><CreditCard className="mr-2 h-5 w-5" /> Générer la facture impayée</>
-                    )}
-                  </Button>
-                </form>
-              </div>
-            </section>
+                </TabsContent>
 
-            {/* History Table Section */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" />
-                Historique des paiements
-              </h2>
-              <DataTable
-                columns={paymentColumns}
-                data={rental.payments}
-                searchKey="invoice_number"
-                emptyMessage="Aucun historique de paiement disponible."
-              />
-            </section>
+                <TabsContent value="payments" className="space-y-4">
+                    <DataTable
+                        columns={paymentColumns}
+                        data={rental.payments}
+                        searchKey="invoice_number"
+                        emptyMessage="Aucun encaissement enregistré."
+                    />
+                </TabsContent>
+            </Tabs>
           </div>
 
           {/* Sidebar Area */}
@@ -628,13 +449,6 @@ export default function Show({ rental, organization }: Props) {
                       <Link href={`/tenants/${rental.tenant.id}`}>
                         Profil complet du locataire
                       </Link>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="w-full rounded-full flex items-center gap-2"
-                      onClick={() => setShowAdvanceDialog(true)}
-                    >
-                      <CreditCard className="h-4 w-4" /> Encaisser une avance
                     </Button>
                     <Button variant="ghost" className="w-full rounded-full flex items-center gap-2" asChild>
                       <a href={`/rentals/${rental.id}/statement`} target="_blank">
@@ -760,133 +574,8 @@ export default function Show({ rental, organization }: Props) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAdvanceDialog} onOpenChange={setShowAdvanceDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Encaisser une avance</DialogTitle>
-            <DialogDescription>
-              Créditez le compte du locataire pour de futurs paiements.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmitAdvance} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="advance_amount">Montant de l'avance (XOF)</Label>
-              <Input
-                id="advance_amount"
-                type="number"
-                value={advanceForm.data.amount}
-                onChange={(e) => advanceForm.setData("amount", e.target.value)}
-                required
-                className="h-11 font-bold"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="advance_date">Date de réception</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !advanceForm.data.payment_date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {advanceForm.data.payment_date ? format(advanceForm.data.payment_date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={advanceForm.data.payment_date}
-                    onSelect={(date) => date && advanceForm.setData("payment_date", date)}
-                    initialFocus
-                    locale={fr}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="advance_method">Moyen de règlement</Label>
-              <Select value={advanceForm.data.payment_method} onValueChange={(value) => advanceForm.setData("payment_method", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Moyen de paiement" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Espèces</SelectItem>
-                  <SelectItem value="bank_transfer">Virement Bancaire</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="advance_notes">Notes</Label>
-              <Input
-                id="advance_notes"
-                value={advanceForm.data.notes}
-                onChange={(e) => advanceForm.setData("notes", e.target.value)}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={advanceForm.processing}>Enregistrer l'avance</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog open={!!selectedPayment} onOpenChange={(open) => !open && setSelectedPayment(null)}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="print:hidden">
-            <DialogTitle>Facture {selectedPayment?.invoice_number}</DialogTitle>
-            <DialogDescription>
-              Visualisation et impression de la facture.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedPayment && (
-            <div className="mt-6 space-y-6">
-              <div className="flex justify-between items-center print:hidden">
-                <div className="flex gap-2 bg-muted p-1 rounded-lg border">
-                  <Button
-                    variant={printMode === 'standard' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setPrintMode('standard')}
-                  >
-                    Standard
-                  </Button>
-                  <Button
-                    variant={printMode === 'receipt' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setPrintMode('receipt')}
-                  >
-                    Ticket
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => window.print()} variant="outline" size="sm" className="flex items-center gap-2">
-                    <Printer className="h-4 w-4" /> Imprimer
-                  </Button>
-                </div>
-              </div>
-
-              <div className="border rounded-lg bg-white overflow-hidden shadow-sm">
-                <InvoiceView
-                  payment={{
-                    ...selectedPayment,
-                    rental: {
-                      ...rental,
-                      property: rental.property,
-                      tenant: rental.tenant
-                    }
-                  } as any}
-                  printMode={printMode}
-                  organization={organization}
-                />
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Dialog for NEW Invoices et Payments supprimés car on utilise maintenant la page dédiée */}
     </>
   )
 }

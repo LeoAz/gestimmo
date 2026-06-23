@@ -128,6 +128,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
 
     const columns: any = {
         late_payments: [
+            { header: "N° Facture", accessor: "invoice_number", sortable: true, sortKey: "invoice_number" },
             { header: "Bien Immobilier", accessor: "property_title", sortable: true, sortKey: "property_title" },
             { header: "Locataire", accessor: "tenant_name", sortable: true, sortKey: "tenant_name" },
             { header: "Date d'échéance", accessor: (row: any) => new Date(row.due_date).toLocaleDateString(), sortable: true, sortKey: "due_date" },
@@ -178,7 +179,7 @@ export default function ReportsIndex({ properties, filters }: Props) {
     }
 
     const searchKeys: Record<ReportType, string> = {
-        late_payments: "tenant_name",
+        late_payments: "invoice_number",
         revenue: "invoice_number",
         availability: "title",
         forecast: "tenant_name"

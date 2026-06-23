@@ -4,6 +4,7 @@
 <table>
     <thead>
         <tr>
+            <th>N° Facture</th>
             <th>Bien Immobilier</th>
             <th>Locataire</th>
             <th>Date d'échéance</th>
@@ -14,6 +15,7 @@
     <tbody>
         @foreach($data as $row)
         <tr>
+            <td>{{ $row->invoice_number }}</td>
             <td>{{ $row->property_title }}</td>
             <td>{{ $row->tenant_name }}</td>
             <td>{{ \Carbon\Carbon::parse($row->due_date)->format('d/m/Y') }}</td>
@@ -24,7 +26,7 @@
     </tbody>
     <tfoot>
         <tr>
-            <td colspan="4" class="text-right font-bold">Total</td>
+            <td colspan="5" class="text-right font-bold">Total</td>
             <td class="text-right font-bold">{{ number_format($data->sum('amount_due'), 0, ',', ' ') }} FCFA</td>
         </tr>
     </tfoot>

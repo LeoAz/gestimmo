@@ -6,6 +6,7 @@ use App\Exports\AvailabilityExport;
 use App\Exports\ForecastExport;
 use App\Exports\LatePaymentsExport;
 use App\Exports\RevenueExport;
+use App\Models\Invoice;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
@@ -30,21 +31,23 @@ class ReportController extends Controller
 
     public function latePayments(Request $request)
     {
-        $query = Rental::where('rentals.status', 'active')
+        $query = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
-            ->where('rentals.next_payment_date', '<', now())
+            ->whereIn('invoices.status', ['pending', 'partial'])
+            ->where('invoices.due_date', '<', now())
             ->select(
                 'properties.title as property_title',
                 DB::raw(config('database.default') === 'sqlite'
                     ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
                     : "CONCAT(tenants.first_name, ' ', tenants.last_name) as tenant_name"
                 ),
-                'rentals.next_payment_date as due_date',
-                'rentals.rent_amount as amount_due',
+                'invoices.due_date',
+                'invoices.invoice_number',
+                'invoices.total_amount as amount_due',
                 DB::raw(config('database.default') === 'sqlite'
-                    ? "strftime('%J', 'now') - strftime('%J', rentals.next_payment_date) as days_late"
-                    : 'DATEDIFF(NOW(), rentals.next_payment_date) as days_late'
+                    ? "strftime('%J', 'now') - strftime('%J', invoices.due_date) as days_late"
+                    : 'DATEDIFF(NOW(), invoices.due_date) as days_late'
                 )
             );
 
@@ -79,6 +82,7 @@ class ReportController extends Controller
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
             ->where('payments.status', 'paid')
+            ->whereNotNull('payments.invoice_id') // Uniquement sur encaissement des factures
             ->select(
                 'properties.title as property_title',
                 DB::raw(config('database.default') === 'sqlite'

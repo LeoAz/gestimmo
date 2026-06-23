@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Organization;
-use App\Models\Payment;
 use App\Models\Property;
 use App\Models\PropertyCategory;
 use App\Models\Rental;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class RentalController extends Controller
@@ -121,21 +121,6 @@ class RentalController extends Controller
                 'status' => 'active',
             ]);
 
-            // Créer automatiquement le premier paiement (caution)
-            if ($rental->deposit_amount > 0) {
-                Payment::create([
-                    'rental_id' => $rental->id,
-                    'amount' => $rental->deposit_amount,
-                    'payment_date' => now(),
-                    'period_start' => $rental->start_date,
-                    'period_end' => $rental->start_date,
-                    'type' => 'deposit',
-                    'status' => 'paid',
-                    'invoice_number' => 'DEP-'.strtoupper(uniqid('', true)),
-                    'notes' => 'Caution initiale',
-                ]);
-            }
-
             return redirect()->route('rentals.index')
                 ->with('success', 'Location enregistrée avec succès.');
         } catch (\Exception $e) {
@@ -153,7 +138,9 @@ class RentalController extends Controller
 
         return Inertia::render('rentals/show', [
             'rental' => $rental->load(['property', 'tenant', 'payments' => function ($query) {
-                $query->orderBy('payment_date', 'desc')->orderBy('created_at', 'desc');
+                $query->with('invoice.items')->orderBy('payment_date', 'desc')->orderBy('created_at', 'desc');
+            }, 'invoices' => function ($query) {
+                $query->with('items')->orderBy('date', 'desc')->orderBy('created_at', 'desc');
             }]),
             'organization' => $organization,
         ]);
@@ -209,11 +196,12 @@ class RentalController extends Controller
             return redirect()->route('rentals.show', $rental)
                 ->with('success', 'Location mise à jour avec succès.');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Erreur lors de la mise à jour de la location: ' . $e->getMessage(), [
+            Log::error('Erreur lors de la mise à jour de la location: '.$e->getMessage(), [
                 'request' => $request->all(),
                 'rental_id' => $rental->id,
-                'exception' => $e
+                'exception' => $e,
             ]);
+
             return back()->with('error', 'Une erreur est survenue lors de la mise à jour : '.$e->getMessage())->withInput();
         }
     }

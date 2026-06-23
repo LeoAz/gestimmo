@@ -5,7 +5,7 @@ import { fr } from 'date-fns/locale';
 import { AlertCircle, Building2, Calendar, FileText, Receipt, Wallet, TrendingUp, BarChart3 } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, LabelList, Pie, PieChart as RechartsPieChart, XAxis, YAxis } from "recharts"
 
-import { show as rentalsShow } from '@/actions/App/Http/Controllers/RentalController';
+import { show as invoicesShow } from '@/actions/App/Http/Controllers/InvoiceController';
 import { DataTable } from '@/components/data-table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -40,13 +40,13 @@ interface Rental {
     rent_amount: number;
 }
 
-interface Payment {
+interface Invoice {
     id: number;
-    amount: string;
     invoice_number: string;
-    status: 'pending' | 'paid';
-    period_start: string;
-    period_end: string;
+    date: string;
+    due_date: string;
+    total_amount: number;
+    status: 'pending' | 'partial' | 'paid';
     rental: Rental;
 }
 
@@ -57,8 +57,8 @@ interface DashboardProps {
     availabilityStats: { status: string; count: number; fill: string }[];
     upcomingPayments: Rental[];
     recoveryStats: { estimated: number; actual: number };
-    latePayments: Rental[];
-    pendingInvoices: Payment[];
+    latePayments: Invoice[];
+    pendingInvoices: Invoice[];
     filters: {
         start_date: string;
         end_date: string;
@@ -449,43 +449,51 @@ export default function Dashboard({
                     <TabsContent value="late" className="space-y-6 outline-none">
                         <div className="flex items-center gap-2 border-b pb-4">
                             <AlertCircle className="h-5 w-5 text-destructive" />
-                            <h2 className="text-xl font-semibold tracking-tight">Retards de Recouvrement</h2>
+                            <h2 className="text-xl font-semibold tracking-tight">Retards sur Factures Émises</h2>
                         </div>
                         <DataTable
                             data={latePayments}
                             columns={[
                                 {
-                                    header: "Locataire",
-                                    accessor: (row: Rental) => (
+                                    header: "Facture",
+                                    accessor: (row: Invoice) => (
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-foreground">{row.tenant.first_name} {row.tenant.last_name}</span>
-                                            <span className="text-xs text-muted-foreground">{row.property.title}</span>
+                                            <span className="font-medium text-foreground">{row.invoice_number}</span>
+                                            <span className="text-xs text-muted-foreground">{row.rental.property.title}</span>
                                         </div>
                                     )
                                 },
                                 {
+                                    header: "Locataire",
+                                    accessor: (row: Invoice) => (
+                                        <span className="font-medium">
+                                            {row.rental.tenant.first_name} {row.rental.tenant.last_name}
+                                        </span>
+                                    )
+                                },
+                                {
                                     header: "Échéance",
-                                    accessor: (row: Rental) => (
+                                    accessor: (row: Invoice) => (
                                         <span className="text-destructive font-semibold">
-                                            {format(new Date(row.next_payment_date), 'dd MMM yyyy', { locale: fr })}
+                                            {format(new Date(row.due_date), 'dd MMM yyyy', { locale: fr })}
                                         </span>
                                     )
                                 },
                                 {
                                     header: "Montant",
                                     className: "text-right font-medium",
-                                    accessor: (row: Rental) => (
+                                    accessor: (row: Invoice) => (
                                         <div className="text-right">
-                                            {formatCurrency(row.rent_amount)}
+                                            {formatCurrency(row.total_amount)}
                                         </div>
                                     )
                                 },
                                 {
                                     header: "",
                                     className: "text-right",
-                                    accessor: (row: Rental) => (
+                                    accessor: (row: Invoice) => (
                                         <Button variant="ghost" size="sm" asChild>
-                                            <Link href={rentalsShow({ rental: row.id })}>Voir</Link>
+                                            <Link href={invoicesShow({ invoice: row.id })}>Voir</Link>
                                         </Button>
                                     )
                                 }
@@ -503,18 +511,18 @@ export default function Dashboard({
                             columns={[
                                 {
                                     header: "Référence",
-                                    accessor: (row: Payment) => (
+                                    accessor: (row: Invoice) => (
                                         <div className="flex flex-col">
                                             <span className="font-medium">{row.invoice_number}</span>
                                             <span className="text-xs text-muted-foreground">
-                                                {format(new Date(row.period_start), 'MMM yyyy', { locale: fr })}
+                                                {format(new Date(row.date), 'dd MMM yyyy', { locale: fr })}
                                             </span>
                                         </div>
                                     )
                                 },
                                 {
                                     header: "Locataire",
-                                    accessor: (row: Payment) => (
+                                    accessor: (row: Invoice) => (
                                         <div className="font-medium">
                                             {row.rental.tenant.first_name} {row.rental.tenant.last_name}
                                         </div>
@@ -523,18 +531,18 @@ export default function Dashboard({
                                 {
                                     header: "Montant",
                                     className: "text-right font-medium",
-                                    accessor: (row: Payment) => (
+                                    accessor: (row: Invoice) => (
                                         <div className="text-right">
-                                            {formatCurrency(row.amount)}
+                                            {formatCurrency(row.total_amount)}
                                         </div>
                                     )
                                 },
                                 {
                                     header: "",
                                     className: "text-right",
-                                    accessor: (row: Payment) => (
+                                    accessor: (row: Invoice) => (
                                         <Button variant="outline" size="sm" asChild>
-                                            <Link href={rentalsShow({ rental: row.rental.id })}>Encaisser</Link>
+                                            <Link href={invoicesShow({ invoice: row.id })}>Détails</Link>
                                         </Button>
                                     )
                                 }

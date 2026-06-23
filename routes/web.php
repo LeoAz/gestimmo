@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PropertyCategoryController;
@@ -27,6 +28,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('rentals/{rental}/terminate', [RentalController::class, 'terminate'])->name('rentals.terminate');
     Route::resource('organizations', OrganizationController::class);
     Route::resource('tenants', TenantController::class);
+    Route::resource('invoices', InvoiceController::class);
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::post('payments', [PaymentController::class, 'store'])->name('payments.store');
     Route::post('payments/advance', [PaymentController::class, 'addAdvance'])->name('payments.advance');

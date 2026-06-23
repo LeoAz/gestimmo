@@ -1,25 +1,31 @@
-import { Head, Link } from "@inertiajs/react"
+import { Head, Link, useForm } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Download, Eye, Printer, AlertCircle, Calendar, History } from "lucide-react"
+import { Download, Eye, Printer, AlertCircle, Calendar, History, Plus } from "lucide-react"
 import * as React from "react"
+import { toast } from "sonner"
 
 import { index as paymentsIndex } from "@/actions/App/Http/Controllers/PaymentController"
 import { show as rentalsShow } from "@/actions/App/Http/Controllers/RentalController"
 import { DataTable } from "@/components/data-table"
 import Heading from "@/components/heading"
 import { InvoiceView } from "@/components/invoice-view"
-import type { Payment } from "@/components/invoice-view"
+import type { Payment, Invoice } from "@/components/invoice-view"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import AppLayout from "@/layouts/app-layout"
 
 interface Rental {
@@ -27,6 +33,7 @@ interface Rental {
     tenant: {
         first_name: string
         last_name: string
+        balance: string
     }
     property: {
         title: string
@@ -38,23 +45,55 @@ interface Rental {
 interface Props {
     payments: Payment[]
     futurePayments: Rental[]
-    debts: Payment[]
+    debts: Invoice[] // Les dettes sont maintenant basées sur les factures impayées
     filters: {
         search?: string
         status?: string
     }
     organization?: any
 }
-export default function Index({ payments, futurePayments, debts, organization }: Props) {
-    const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null)
-    const [printMode, setPrintMode] = React.useState<"standard" | "receipt">("standard")
+
+export default function Index({ payments, futurePayments, debts }: Props) {
+    const [showCreateModal, setShowCreateModal] = React.useState(false)
+
+    const { data, setData, post, processing, reset, errors } = useForm({
+        invoice_id: "",
+        amount: "",
+        payment_date: format(new Date(), "yyyy-MM-dd"),
+        payment_method: "cash",
+        notes: "",
+    })
 
     const handlePrint = () => {
         window.print()
     }
 
     const formatCurrency = (amount: string | number) => {
-        return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(amount))
+        return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF", minimumFractionDigits: 0 }).format(Number(amount))
+    }
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        post("/payments", {
+            onSuccess: () => {
+                setShowCreateModal(false)
+                reset()
+                toast.success("Encaissement enregistré avec succès")
+            }
+        })
+    }
+
+    const handleInvoiceChange = (invoiceId: string) => {
+        const invoice = debts.find(d => d.id === parseInt(invoiceId))
+        if (invoice) {
+            setData(d => ({
+                ...d,
+                invoice_id: invoiceId,
+                amount: invoice.total_amount.toString()
+            }))
+        } else {
+            setData("invoice_id", invoiceId)
+        }
     }
 
     const columns = [
@@ -100,9 +139,11 @@ export default function Index({ payments, futurePayments, debts, organization }:
                         variant="ghost"
                         size="icon"
                         title="Voir la facture"
-                        onClick={() => setSelectedPayment(row)}
+                        asChild
                     >
-                        <Printer className="h-4 w-4" />
+                        <Link href={`/invoices/${row.invoice_id}`}>
+                            <Printer className="h-4 w-4" />
+                        </Link>
                     </Button>
                     <Button variant="ghost" size="icon" asChild title="Détails de la location">
                         <Link href={rentalsShow({ rental: row.rental.id })}>
@@ -110,6 +151,44 @@ export default function Index({ payments, futurePayments, debts, organization }:
                         </Link>
                     </Button>
                 </div>
+            ),
+        },
+    ]
+
+    const debtColumns = [
+        {
+            header: "N° Facture",
+            accessor: (row: Invoice) => <span className="font-medium">{row.invoice_number}</span>,
+        },
+        {
+            header: "Locataire",
+            accessor: (row: Invoice) => `${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`
+        },
+        {
+            header: "Bien",
+            accessor: (row: Invoice) => row.rental.property.title
+        },
+        {
+            header: "Montant à payer",
+            accessor: (row: Invoice) => (
+                <span className="text-destructive font-bold">
+                    {formatCurrency(row.total_amount)}
+                </span>
+            )
+        },
+        {
+            header: "Date Facture",
+            accessor: (row: Invoice) => format(new Date(row.date), "dd/MM/yyyy")
+        },
+        {
+            header: "Actions",
+            accessor: (row: Invoice) => (
+                <Button variant="outline" size="sm" onClick={() => {
+                    handleInvoiceChange(row.id.toString())
+                    setShowCreateModal(true)
+                }}>
+                    Encaisser
+                </Button>
             ),
         },
     ]
@@ -148,10 +227,16 @@ export default function Index({ payments, futurePayments, debts, organization }:
             <Head title="Paiements & Créances" />
 
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Heading
-                    title="Paiements & Créances"
-                    description="Gérez vos paiements, créances à recouvrer et futurs paiements."
-                />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <Heading
+                        title="Paiements & Créances"
+                        description="Gérez vos paiements, créances à recouvrer et futurs paiements."
+                    />
+                    <Button onClick={() => setShowCreateModal(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nouvel encaissement
+                    </Button>
+                </div>
 
                 <Tabs defaultValue="history" className="w-full">
                     <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
@@ -177,7 +262,7 @@ export default function Index({ payments, futurePayments, debts, organization }:
                     <TabsContent value="debts" className="mt-4">
                         <DataTable
                             data={debts}
-                            columns={columns}
+                            columns={debtColumns}
                             emptyMessage="Aucune créance en attente."
                         />
                     </TabsContent>
@@ -191,56 +276,88 @@ export default function Index({ payments, futurePayments, debts, organization }:
                     </TabsContent>
                 </Tabs>
 
-                <Dialog open={!!selectedPayment} onOpenChange={(open) => !open && setSelectedPayment(null)}>
-                    <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader className="print:hidden">
-                            <DialogTitle>Facture {selectedPayment?.invoice_number}</DialogTitle>
+                {/* Modal Création Encaissement */}
+                <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                            <DialogTitle>Enregistrer un encaissement</DialogTitle>
                             <DialogDescription>
-                                Visualisation et impression de la facture.
+                                Un encaissement doit obligatoirement être lié à une facture existante.
                             </DialogDescription>
                         </DialogHeader>
 
-                        {selectedPayment && (
-                            <div className="mt-6 space-y-6">
-                                <div className="flex justify-between items-center print:hidden">
-                                    <div className="flex gap-2 bg-muted p-1 rounded-lg border">
-                                        <Button
-                                            variant={printMode === 'standard' ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            onClick={() => setPrintMode('standard')}
-                                        >
-                                            Standard
-                                        </Button>
-                                        <Button
-                                            variant={printMode === 'receipt' ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            onClick={() => setPrintMode('receipt')}
-                                        >
-                                            Ticket
-                                        </Button>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button onClick={handlePrint} variant="outline" size="sm" className="flex items-center gap-2">
-                                            <Printer className="h-4 w-4" /> Imprimer
-                                        </Button>
-                                        <Button onClick={handlePrint} variant="outline" size="sm" className="flex items-center gap-2">
-                                            <Download className="h-4 w-4" /> PDF
-                                        </Button>
-                                    </div>
-                                </div>
+                        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="invoice">Facture à encaisser</Label>
+                                <Select onValueChange={handleInvoiceChange} value={data.invoice_id}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner une facture" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {debts.map((invoice) => (
+                                            <SelectItem key={invoice.id} value={invoice.id.toString()}>
+                                                {invoice.invoice_number} - {invoice.rental.tenant.first_name} {invoice.rental.tenant.last_name} ({formatCurrency(invoice.total_amount)})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.invoice_id && <p className="text-xs text-destructive">{errors.invoice_id}</p>}
+                            </div>
 
-                                <div className="border rounded-lg bg-white overflow-hidden shadow-sm">
-                                    <InvoiceView payment={selectedPayment} printMode={printMode} organization={organization} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="amount">Montant encaissé (XOF)</Label>
+                                    <Input
+                                        id="amount"
+                                        type="number"
+                                        value={data.amount}
+                                        onChange={(e) => setData("amount", e.target.value)}
+                                        required
+                                    />
+                                    {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
                                 </div>
-                                <div className="flex justify-center mt-4 print:hidden">
-                                    <Button asChild variant="link">
-                                        <Link href={`/payments/${selectedPayment.id}/invoice`}>
-                                            Ouvrir en plein écran pour impression
-                                        </Link>
-                                    </Button>
+                                <div className="space-y-2">
+                                    <Label htmlFor="payment_date">Date d'encaissement</Label>
+                                    <Input
+                                        id="payment_date"
+                                        type="date"
+                                        value={data.payment_date}
+                                        onChange={(e) => setData("payment_date", e.target.value)}
+                                        required
+                                    />
                                 </div>
                             </div>
-                        )}
+
+                            <div className="space-y-2">
+                                <Label htmlFor="payment_method">Moyen de paiement</Label>
+                                <Select onValueChange={(v) => setData("payment_method", v)} value={data.payment_method}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner un moyen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="cash">Espèces</SelectItem>
+                                        <SelectItem value="bank_transfer">Virement Bancaire</SelectItem>
+                                        <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                                        <SelectItem value="balance">Utiliser le solde (Avance)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="notes">Notes</Label>
+                                <Textarea
+                                    id="notes"
+                                    value={data.notes}
+                                    onChange={(e) => setData("notes", e.target.value)}
+                                    placeholder="Commentaires éventuels..."
+                                />
+                            </div>
+
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>Annuler</Button>
+                                <Button type="submit" disabled={processing}>Confirmer l'encaissement</Button>
+                            </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
             </div>
@@ -251,7 +368,7 @@ export default function Index({ payments, futurePayments, debts, organization }:
 Index.layout = (page: React.ReactNode) => (
     <AppLayout
         breadcrumbs={[
-            { title: "Factures & Reçus", href: paymentsIndex() },
+            { title: "Encaissements", href: "/payments" },
         ]}
     >
         {page}

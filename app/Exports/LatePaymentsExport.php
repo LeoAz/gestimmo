@@ -28,6 +28,7 @@ class LatePaymentsExport implements FromCollection, ShouldAutoSize, WithHeadings
     public function headings(): array
     {
         return [
+            'N° Facture',
             'Bien Immobilier',
             'Locataire',
             'Date d\'échéance',
@@ -39,6 +40,7 @@ class LatePaymentsExport implements FromCollection, ShouldAutoSize, WithHeadings
     public function map($row): array
     {
         return [
+            $row->invoice_number,
             $row->property_title,
             $row->tenant_name,
             $row->due_date,

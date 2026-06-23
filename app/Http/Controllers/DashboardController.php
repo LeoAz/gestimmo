@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\Rental;
@@ -44,12 +45,13 @@ class DashboardController extends Controller
             ['status' => 'other', 'count' => max(0, $totalProperties - $availableProperties->count() - $rentedProperties), 'fill' => 'var(--color-other)'],
         ];
 
-        // 2. Revenue evolution (based on filtered dates)
+        // 2. Revenue evolution (based on filtered dates) - CHIFFRE D'AFFAIRE UNIQUEMENT SUR ENCAISSEMENT DES FACTURES
         $revenueEvolution = Payment::selectRaw(
             config('database.default') === 'sqlite'
                 ? 'strftime("%Y-%m", payment_date) as month, SUM(amount) as total'
                 : 'DATE_FORMAT(payment_date, "%Y-%m") as month, SUM(amount) as total'
         )
+            ->whereNotNull('invoice_id') // Uniquement sur encaissement des factures
             ->whereBetween('payment_date', [$startDate, $endDate])
             ->where('status', 'paid')
             ->groupBy('month')
@@ -62,14 +64,14 @@ class DashboardController extends Controller
                 ];
             });
 
-        // New: Debts to recover (Créances à recouvrer) over time
-        $debtEvolution = Payment::selectRaw(
+        // New: Debts to recover (Créances à recouvrer) over time - BASÉ SUR LES FACTURES ÉMISES NON ENCAISSÉES
+        $debtEvolution = Invoice::selectRaw(
             config('database.default') === 'sqlite'
-                ? 'strftime("%Y-%m", period_start) as month, SUM(amount) as total'
-                : 'DATE_FORMAT(period_start, "%Y-%m") as month, SUM(amount) as total'
+                ? 'strftime("%Y-%m", date) as month, SUM(total_amount) as total'
+                : 'DATE_FORMAT(date, "%Y-%m") as month, SUM(total_amount) as total'
         )
-            ->where('status', 'pending')
-            ->whereBetween('period_start', [$startDate, $endDate])
+            ->whereIn('status', ['pending', 'partial'])
+            ->whereBetween('date', [$startDate, $endDate])
             ->groupBy('month')
             ->orderBy('month')
             ->get()
@@ -80,7 +82,7 @@ class DashboardController extends Controller
                 ];
             });
 
-        // 3. Upcoming payments (next 30 days) and Monthly Recovery Estimation
+        // 3. Upcoming payments (next 30 days) and Monthly Recovery Estimation - BASÉ SUR LES LOCATIONS
         $upcomingPayments = Rental::with(['property', 'tenant'])
             ->where('status', 'active')
             ->where('next_payment_date', '>=', $today)
@@ -93,24 +95,20 @@ class DashboardController extends Controller
             ->sum('rent_amount');
 
         $actualRecovery = Payment::whereBetween('payment_date', [$startOfMonth, $endOfMonth])
-            ->where('type', 'rent')
+            ->whereNotNull('invoice_id')
             ->where('status', 'paid')
             ->sum('amount');
 
-        // 4. Late payments & Pending Invoices (Créances)
-        $latePayments = Rental::with(['property', 'tenant'])
-            ->where('status', 'active')
-            ->where('next_payment_date', '<', $today)
-            ->whereDoesntHave('payments', function ($query) use ($today) {
-                $query->where('status', 'pending')
-                    ->where('period_start', '<=', $today);
-            })
-            ->orderBy('next_payment_date')
+        // 4. Late payments & Pending Invoices (Créances) - RETARD DE PAIEMENT SUR FACTURES DÉJÀ ÉMISES
+        $lateInvoices = Invoice::with(['rental.property', 'rental.tenant'])
+            ->whereIn('status', ['pending', 'partial'])
+            ->where('due_date', '<', $today)
+            ->orderBy('due_date')
             ->get();
 
-        $pendingInvoices = Payment::with(['rental.property', 'rental.tenant'])
-            ->where('status', 'pending')
-            ->orderBy('period_start')
+        $pendingInvoices = Invoice::with(['rental.property', 'rental.tenant'])
+            ->whereIn('status', ['pending', 'partial'])
+            ->orderBy('date')
             ->get();
 
         return Inertia::render('dashboard', [
@@ -123,7 +121,7 @@ class DashboardController extends Controller
                 'estimated' => (float) $estimatedRecovery,
                 'actual' => (float) $actualRecovery,
             ],
-            'latePayments' => $latePayments,
+            'latePayments' => $lateInvoices, // Remplacement par les factures en retard
             'pendingInvoices' => $pendingInvoices,
             'filters' => [
                 'start_date' => $startDate->toDateString(),
