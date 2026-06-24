@@ -49,9 +49,9 @@ interface Rental {
   rent_amount: string
 }
 
-interface Building {
+interface Category {
   id: number
-  title: string
+  name: string
 }
 
 interface Props {
@@ -60,9 +60,9 @@ interface Props {
       links: any[]
   }
   rentals: Rental[]
-  buildings: Building[]
+  categories: Category[]
   filters: {
-      property_id?: string
+      category_id?: string
       status?: string
   }
 }
@@ -71,7 +71,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: "Factures", href: "/invoices" },
 ]
 
-export default function Index({ invoices, buildings }: Props) {
+export default function Index({ invoices, categories }: Props) {
   const [deleteId, setDeleteId] = React.useState<number | null>(null)
 
   const columns = [
@@ -170,9 +170,9 @@ export default function Index({ invoices, buildings }: Props) {
             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
             filters={[
                 {
-                    label: "Immeuble / Bâtiment",
-                    key: "property_id",
-                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                    label: "Catégorie",
+                    key: "category_id",
+                    options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                 },
                 {
                     label: "Statut",

@@ -41,25 +41,25 @@ interface Rental {
     rent_amount: string
 }
 
-interface Building {
+interface Category {
     id: number
-    title: string
+    name: string
 }
 
 interface Props {
     payments: Payment[]
     futurePayments: Rental[]
     debts: Invoice[] // Les dettes sont maintenant basées sur les factures impayées
-    buildings: Building[]
+    categories: Category[]
     filters: {
         search?: string
         status?: string
-        property_id?: string
+        category_id?: string
     }
     organization?: any
 }
 
-export default function Index({ payments, futurePayments, debts, buildings }: Props) {
+export default function Index({ payments, futurePayments, debts, categories }: Props) {
     const [showCreateModal, setShowCreateModal] = React.useState(false)
 
     const { data, setData, post, processing, reset, errors } = useForm({
@@ -288,9 +288,9 @@ export default function Index({ payments, futurePayments, debts, buildings }: Pr
                             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
                             filters={[
                                 {
-                                    label: "Immeuble / Bâtiment",
-                                    key: "property_id",
-                                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                                    label: "Catégorie",
+                                    key: "category_id",
+                                    options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                                 }
                             ]}
                         />
@@ -303,9 +303,9 @@ export default function Index({ payments, futurePayments, debts, buildings }: Pr
                             emptyMessage="Aucune créance en attente."
                             filters={[
                                 {
-                                    label: "Immeuble / Bâtiment",
-                                    key: "property_id",
-                                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                                    label: "Catégorie",
+                                    key: "category_id",
+                                    options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                                 }
                             ]}
                         />
@@ -318,9 +318,9 @@ export default function Index({ payments, futurePayments, debts, buildings }: Pr
                             emptyMessage="Aucun paiement prévu prochainement."
                             filters={[
                                 {
-                                    label: "Immeuble / Bâtiment",
-                                    key: "property_id",
-                                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                                    label: "Catégorie",
+                                    key: "category_id",
+                                    options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                                 }
                             ]}
                         />

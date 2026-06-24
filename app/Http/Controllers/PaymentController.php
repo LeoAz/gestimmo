@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Organization;
 use App\Models\Payment;
-use App\Models\Property;
+use App\Models\PropertyCategory;
 use App\Models\Rental;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -17,12 +17,9 @@ class PaymentController extends Controller
     {
         $query = Payment::with(['rental.property.parent', 'rental.tenant', 'invoice.items']);
 
-        if ($request->filled('property_id')) {
-            $query->whereHas('rental.property', function ($q) use ($request) {
-                $q->where(function ($inner) use ($request) {
-                    $inner->where('id', $request->property_id)
-                        ->orWhere('parent_id', $request->property_id);
-                });
+        if ($request->filled('category_id')) {
+            $query->whereHas('rental.property.category', function ($c) use ($request) {
+                $c->where('id', $request->category_id);
             });
         }
 
@@ -51,12 +48,9 @@ class PaymentController extends Controller
             ->where('status', 'active')
             ->where('next_payment_date', '<=', now()->addDays(30));
 
-        if ($request->filled('property_id')) {
-            $futurePaymentsQuery->whereHas('property', function ($q) use ($request) {
-                $q->where(function ($inner) use ($request) {
-                    $inner->where('id', $request->property_id)
-                        ->orWhere('parent_id', $request->property_id);
-                });
+        if ($request->filled('category_id')) {
+            $futurePaymentsQuery->whereHas('property.category', function ($c) use ($request) {
+                $c->where('id', $request->category_id);
             });
         }
 
@@ -66,20 +60,15 @@ class PaymentController extends Controller
         $debtsQuery = Invoice::with(['rental.property.parent', 'rental.tenant', 'items'])
             ->where('status', '!=', 'paid');
 
-        if ($request->filled('property_id')) {
-            $debtsQuery->whereHas('rental.property', function ($q) use ($request) {
-                $q->where(function ($inner) use ($request) {
-                    $inner->where('id', $request->property_id)
-                        ->orWhere('parent_id', $request->property_id);
-                });
+        if ($request->filled('category_id')) {
+            $debtsQuery->whereHas('rental.property.category', function ($c) use ($request) {
+                $c->where('id', $request->category_id);
             });
         }
 
         $debts = $debtsQuery->get();
 
-        $buildings = Property::whereHas('category', function ($query) {
-            $query->whereIn('slug', ['immeuble', 'batiment']);
-        })->get();
+        $categories = PropertyCategory::all();
 
         $organization = Organization::first();
 
@@ -91,8 +80,8 @@ class PaymentController extends Controller
             'payments' => $payments,
             'futurePayments' => $futurePayments,
             'debts' => $debts,
-            'buildings' => $buildings,
-            'filters' => $request->only(['search', 'status', 'property_id']),
+            'categories' => $categories,
+            'filters' => $request->only(['search', 'status', 'category_id']),
             'organization' => $organization,
         ]);
     }

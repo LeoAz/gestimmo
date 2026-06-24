@@ -38,18 +38,18 @@ interface Rental {
   tenant: Tenant
 }
 
-interface Building {
+interface Category {
   id: number
-  title: string
+  name: string
 }
 
 interface Props {
   rentals: Rental[]
-  buildings: Building[]
+  categories: Category[]
   filters: {
     search?: string
     status?: string
-    property_id?: string
+    category_id?: string
   }
 }
 
@@ -60,7 +60,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ]
 
-export default function Index({ rentals, buildings, filters }: Props) {
+export default function Index({ rentals, categories, filters }: Props) {
   const [selectedRental, setSelectedRental] = React.useState<Rental | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
 
@@ -169,9 +169,9 @@ export default function Index({ rentals, buildings, filters }: Props) {
             showPagination={false}
             filters={[
                 {
-                    label: "Immeuble / Bâtiment",
-                    key: "property_id",
-                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                    label: "Catégorie",
+                    key: "category_id",
+                    options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                 },
                 {
                     label: "Statut",

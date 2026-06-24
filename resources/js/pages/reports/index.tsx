@@ -31,17 +31,17 @@ interface Property {
     parent_id: number | null
 }
 
-interface Building {
+interface Category {
     id: number
-    title: string
+    name: string
 }
 
 interface Props {
     properties: Property[]
-    buildings: Building[]
+    categories: Category[]
     filters: {
         property_id?: string
-        building_id?: string
+        category_id?: string
         start_date?: string
         end_date?: string
     }
@@ -49,12 +49,12 @@ interface Props {
 
 type ReportType = 'late_payments' | 'revenue' | 'availability' | 'forecast'
 
-export default function ReportsIndex({ properties, buildings, filters }: Props) {
+export default function ReportsIndex({ properties, categories, filters }: Props) {
     const [activeReport, setActiveReport] = React.useState<ReportType>('late_payments')
     const [propertyId, setPropertyId] = React.useState(filters.property_id || "all")
-    const [buildingId, setBuildingId] = React.useState(filters.building_id || "all")
+    const [categoryId, setCategoryId] = React.useState(filters.category_id || "all")
     const [propertyOpen, setPropertyOpen] = React.useState(false)
-    const [buildingOpen, setBuildingOpen] = React.useState(false)
+    const [categoryOpen, setCategoryOpen] = React.useState(false)
     const [startDate, setStartDate] = React.useState(filters.start_date || "")
     const [endDate, setEndDate] = React.useState(filters.end_date || "")
     const [reportData, setReportData] = React.useState<any[]>([])
@@ -70,8 +70,8 @@ export default function ReportsIndex({ properties, buildings, filters }: Props) 
                 params.append('property_id', propertyId)
             }
 
-            if (buildingId !== "all") {
-                params.append('building_id', buildingId)
+            if (categoryId !== "all") {
+                params.append('category_id', categoryId)
             }
 
             if (startDate) {
@@ -98,7 +98,7 @@ export default function ReportsIndex({ properties, buildings, filters }: Props) 
                 setLoading(false)
             }
         }
-    }, [activeReport, propertyId, buildingId, startDate, endDate])
+    }, [activeReport, propertyId, categoryId, startDate, endDate])
 
     React.useEffect(() => {
         const controller = new AbortController()
@@ -121,8 +121,8 @@ export default function ReportsIndex({ properties, buildings, filters }: Props) 
             params.append('property_id', propertyId)
         }
 
-        if (buildingId !== "all") {
-            params.append('building_id', buildingId)
+        if (categoryId !== "all") {
+            params.append('category_id', categoryId)
         }
 
         if (startDate) {
@@ -300,58 +300,58 @@ export default function ReportsIndex({ properties, buildings, filters }: Props) 
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="space-y-2 flex flex-col">
-                                <label className="text-sm font-medium">Immeuble / Bâtiment</label>
-                                <Popover open={buildingOpen} onOpenChange={setBuildingOpen}>
+                                <label className="text-sm font-medium">Catégorie</label>
+                                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
                                             role="combobox"
-                                            aria-expanded={buildingOpen}
+                                            aria-expanded={categoryOpen}
                                             className="w-full justify-between font-normal"
                                         >
-                                            {buildingId === "all"
-                                                ? "Tous les immeubles"
-                                                : buildings.find((b) => b.id.toString() === buildingId)?.title || "Sélectionner un immeuble"}
+                                            {categoryId === "all"
+                                                ? "Toutes les catégories"
+                                                : categories.find((c) => c.id.toString() === categoryId)?.name || "Sélectionner une catégorie"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                                         <Command>
-                                            <CommandInput placeholder="Rechercher un immeuble..." />
+                                            <CommandInput placeholder="Rechercher une catégorie..." />
                                             <CommandList>
-                                                <CommandEmpty>Aucun immeuble trouvé.</CommandEmpty>
+                                                <CommandEmpty>Aucune catégorie trouvée.</CommandEmpty>
                                                 <CommandGroup>
                                                     <CommandItem
                                                         value="all"
                                                         onSelect={() => {
-                                                            setBuildingId("all")
-                                                            setBuildingOpen(false)
+                                                            setCategoryId("all")
+                                                            setCategoryOpen(false)
                                                         }}
                                                     >
                                                         <Check
                                                             className={cn(
                                                                 "mr-2 h-4 w-4",
-                                                                buildingId === "all" ? "opacity-100" : "opacity-0"
+                                                                categoryId === "all" ? "opacity-100" : "opacity-0"
                                                             )}
                                                         />
-                                                        Tous les immeubles
+                                                        Toutes les catégories
                                                     </CommandItem>
-                                                    {buildings.map((b) => (
+                                                    {categories.map((c) => (
                                                         <CommandItem
-                                                            key={b.id}
-                                                            value={b.title}
+                                                            key={c.id}
+                                                            value={c.name}
                                                             onSelect={() => {
-                                                                setBuildingId(b.id.toString())
-                                                                setBuildingOpen(false)
+                                                                setCategoryId(c.id.toString())
+                                                                setCategoryOpen(false)
                                                             }}
                                                         >
                                                             <Check
                                                                 className={cn(
                                                                     "mr-2 h-4 w-4",
-                                                                    buildingId === b.id.toString() ? "opacity-100" : "opacity-0"
+                                                                    categoryId === c.id.toString() ? "opacity-100" : "opacity-0"
                                                                 )}
                                                             />
-                                                            {b.title}
+                                                            {c.name}
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>

@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
+use App\Models\PropertyCategory;
 use App\Models\Rental;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -22,14 +23,12 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $properties = Property::select('id', 'title', 'parent_id')->get();
-        $buildings = Property::whereHas('category', function ($query) {
-            $query->whereIn('slug', ['immeuble', 'batiment']);
-        })->select('id', 'title')->get();
+        $categories = PropertyCategory::select('id', 'name')->get();
 
         return Inertia::render('reports/index', [
             'properties' => $properties,
-            'buildings' => $buildings,
-            'filters' => $request->only(['property_id', 'building_id', 'start_date', 'end_date', 'type']),
+            'categories' => $categories,
+            'filters' => $request->only(['property_id', 'category_id', 'start_date', 'end_date', 'type']),
         ]);
     }
 
@@ -61,11 +60,8 @@ class ReportController extends Controller
             $query->where('rentals.property_id', $request->property_id);
         }
 
-        if ($request->building_id) {
-            $query->where(function ($q) use ($request) {
-                $q->where('properties.id', $request->building_id)
-                    ->orWhere('properties.parent_id', $request->building_id);
-            });
+        if ($request->category_id) {
+            $query->where('properties.category_id', $request->category_id);
         }
 
         $data = $query->get();
@@ -119,11 +115,8 @@ class ReportController extends Controller
             $query->where('rentals.property_id', $request->property_id);
         }
 
-        if ($request->building_id) {
-            $query->where(function ($q) use ($request) {
-                $q->where('properties.id', $request->building_id)
-                    ->orWhere('properties.parent_id', $request->building_id);
-            });
+        if ($request->category_id) {
+            $query->where('properties.category_id', $request->category_id);
         }
 
         if ($request->start_date) {
@@ -167,11 +160,8 @@ class ReportController extends Controller
                 'properties.price'
             );
 
-        if ($request->building_id) {
-            $query->where(function ($q) use ($request) {
-                $q->where('properties.id', $request->building_id)
-                    ->orWhere('properties.parent_id', $request->building_id);
-            });
+        if ($request->category_id) {
+            $query->where('properties.category_id', $request->category_id);
         }
 
         $data = $query->get();
@@ -220,11 +210,8 @@ class ReportController extends Controller
             $query->where('rentals.property_id', $request->property_id);
         }
 
-        if ($request->building_id) {
-            $query->where(function ($q) use ($request) {
-                $q->where('properties.id', $request->building_id)
-                    ->orWhere('properties.parent_id', $request->building_id);
-            });
+        if ($request->category_id) {
+            $query->where('properties.category_id', $request->category_id);
         }
 
         $rentals = $query->get();
