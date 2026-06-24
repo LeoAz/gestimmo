@@ -398,7 +398,6 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                                                         Tous les biens
                                                     </CommandItem>
                                                     {properties
-                                                        .filter(p => buildingId === "all" || p.parent_id?.toString() === buildingId || p.id.toString() === buildingId)
                                                         .map((p) => (
                                                         <CommandItem
                                                             key={p.id}
