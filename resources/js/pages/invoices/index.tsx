@@ -61,10 +61,7 @@ interface Property {
 }
 
 interface Props {
-  invoices: {
-      data: Invoice[]
-      links: any[]
-  }
+  invoices: Invoice[]
   rentals: Rental[]
   categories: Category[]
   properties: Property[]
@@ -180,7 +177,7 @@ export default function Index({ invoices, categories, properties, filters }: Pro
         </div>
 
         <DataTable
-            data={invoices.data}
+            data={invoices}
             columns={columns}
             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
             initialFilters={filters}

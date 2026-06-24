@@ -37,7 +37,7 @@ class InvoiceController extends Controller
         $properties = Property::whereNull('parent_id')->get();
 
         return Inertia::render('invoices/index', [
-            'invoices' => $query->latest()->paginate(10)->withQueryString(),
+            'invoices' => $query->latest()->get(),
             'categories' => $categories,
             'properties' => $properties,
             'filters' => $request->only(['category_id', 'status', 'property_id']),
