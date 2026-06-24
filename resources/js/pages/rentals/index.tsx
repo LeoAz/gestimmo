@@ -1,3 +1,4 @@
+import { router } from "@inertiajs/react"
 import { Head, Link } from "@inertiajs/react"
 import { Edit, Eye, Plus, Trash } from "lucide-react"
 import * as React from "react"
@@ -62,9 +63,16 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ]
 
-export default function Index({ rentals, categories, properties }: Props) {
+export default function Index({ rentals, categories, properties, filters }: Props) {
   const [selectedRental, setSelectedRental] = React.useState<Rental | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
+
+  const handleFilterChange = (newFilters: Record<string, string>) => {
+      router.get('/rentals', newFilters, {
+          preserveState: true,
+          replace: true
+      })
+  }
 
   const columns = [
     {
@@ -168,6 +176,8 @@ export default function Index({ rentals, categories, properties }: Props) {
             data={rentals}
             columns={columns}
             searchKey={(row) => `${row.tenant.first_name} ${row.tenant.last_name} ${row.property.title} ${row.tenant.phone}`}
+            initialFilters={filters}
+            onFilterChange={handleFilterChange}
             showPagination={false}
             filters={[
                 {

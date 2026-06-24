@@ -1,3 +1,4 @@
+import { router } from "@inertiajs/react"
 import { Head, Link } from "@inertiajs/react"
 import { format } from "date-fns"
 import { Edit2, Eye, Plus, Trash2 } from "lucide-react"
@@ -78,8 +79,15 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: "Factures", href: "/invoices" },
 ]
 
-export default function Index({ invoices, categories, properties }: Props) {
+export default function Index({ invoices, categories, properties, filters }: Props) {
   const [deleteId, setDeleteId] = React.useState<number | null>(null)
+
+  const handleFilterChange = (newFilters: Record<string, string>) => {
+      router.get('/invoices', newFilters, {
+          preserveState: true,
+          replace: true
+      })
+  }
 
   const columns = [
     {
@@ -175,6 +183,8 @@ export default function Index({ invoices, categories, properties }: Props) {
             data={invoices.data}
             columns={columns}
             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
+            initialFilters={filters}
+            onFilterChange={handleFilterChange}
             filters={[
                 {
                     label: "Catégorie",

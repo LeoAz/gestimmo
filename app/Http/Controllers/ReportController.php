@@ -56,14 +56,14 @@ class ReportController extends Controller
                 )
             );
 
-        if ($request->property_id) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->where(function ($q) use ($request) {
                 $q->where('rentals.property_id', $request->property_id)
                     ->orWhere('properties.parent_id', $request->property_id);
             });
         }
 
-        if ($request->category_id) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $query->where('properties.property_category_id', $request->category_id);
         }
 
@@ -114,18 +114,18 @@ class ReportController extends Controller
                 )
             );
 
-        if ($request->property_id) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->where(function ($q) use ($request) {
                 $q->where('rentals.property_id', $request->property_id)
                     ->orWhere('properties.parent_id', $request->property_id);
             });
         }
 
-        if ($request->category_id) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $query->where('properties.property_category_id', $request->category_id);
         }
 
-        if ($request->start_date) {
+        if ($request->filled('start_date')) {
             $query->where('payments.payment_date', '>=', $request->start_date);
         }
 
@@ -166,14 +166,14 @@ class ReportController extends Controller
                 'properties.price'
             );
 
-        if ($request->property_id) {
+        if ($request->filled('property_id')) {
             $query->where(function ($q) use ($request) {
                 $q->where('properties.id', $request->property_id)
                     ->orWhere('properties.parent_id', $request->property_id);
             });
         }
 
-        if ($request->category_id) {
+        if ($request->filled('category_id')) {
             $query->where('properties.property_category_id', $request->category_id);
         }
 
@@ -219,14 +219,14 @@ class ReportController extends Controller
                 'rentals.rent_amount as amount_expected'
             );
 
-        if ($request->property_id) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->where(function ($q) use ($request) {
                 $q->where('rentals.property_id', $request->property_id)
                     ->orWhere('properties.parent_id', $request->property_id);
             });
         }
 
-        if ($request->category_id) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $query->where('properties.property_category_id', $request->category_id);
         }
 

@@ -112,7 +112,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         return () => {
             controller.abort()
         }
-    }, [fetchReportData])
+    }, [fetchReportData, activeReport, propertyId, categoryId, startDate, endDate])
 
     const handleExport = (type: 'excel' | 'pdf') => {
         const params = new URLSearchParams()

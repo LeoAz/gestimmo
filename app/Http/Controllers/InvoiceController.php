@@ -16,20 +16,20 @@ class InvoiceController extends Controller
     {
         $query = Invoice::with(['rental.tenant', 'rental.property.parent']);
 
-        if ($request->filled('category_id')) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $query->whereHas('rental.property', function ($p) use ($request) {
                 $p->where('property_category_id', $request->category_id);
             });
         }
 
-        if ($request->filled('property_id')) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->whereHas('rental.property', function ($p) use ($request) {
                 $p->where('id', $request->property_id)
                     ->orWhere('parent_id', $request->property_id);
             });
         }
 
-        if ($request->filled('status')) {
+        if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 

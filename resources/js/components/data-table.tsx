@@ -33,6 +33,8 @@ interface DataTableProps<T> {
   data: T[]
   emptyMessage?: string
   searchKey?: keyof T | ((row: T) => string)
+  initialFilters?: Record<string, string>
+  onFilterChange?: (filters: Record<string, string>) => void
   filters?: {
     label: string
     key: keyof T
@@ -47,18 +49,30 @@ export function DataTable<T>({
   data,
   emptyMessage = "Aucun résultat trouvé.",
   searchKey,
+  initialFilters = {},
+  onFilterChange,
   filters = [],
   showPagination = true,
   footer,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = React.useState("")
-  const [activeFilters, setActiveFilters] = React.useState<Record<string, string>>({})
+  const [activeFilters, setActiveFilters] = React.useState<Record<string, string>>(initialFilters)
   const [sortConfig, setSortConfig] = React.useState<{ key: keyof T | null; direction: "asc" | "desc" }>({
     key: null,
     direction: "asc",
   })
   const [currentPage, setCurrentPage] = React.useState(1)
   const itemsPerPage = 10
+
+  // Update local state if initialFilters changes
+  React.useEffect(() => {
+    setActiveFilters((current) => {
+        const isSame = Object.keys(initialFilters).length === Object.keys(current).length &&
+            Object.keys(initialFilters).every(key => initialFilters[key] === current[key]);
+        if (isSame) return current;
+        return initialFilters;
+    })
+  }, [initialFilters])
 
   // Filter
   const filteredData = React.useMemo(() => {
@@ -77,15 +91,17 @@ export function DataTable<T>({
       })
     }
 
-    // Apply custom filters
-    Object.entries(activeFilters).forEach(([key, value]) => {
-      if (value && value !== "all") {
-        result = result.filter((item) => String(item[key as keyof T]) === value)
-      }
-    })
+    // Apply custom filters only if NOT server side (no onFilterChange provided)
+    if (!onFilterChange) {
+        Object.entries(activeFilters).forEach(([key, value]) => {
+            if (value && value !== "all") {
+                result = result.filter((item) => String(item[key as keyof T]) === value)
+            }
+        })
+    }
 
     return result
-  }, [data, searchTerm, searchKey, activeFilters])
+  }, [data, searchTerm, searchKey, activeFilters, onFilterChange])
 
   // Sort
   const sortedData = React.useMemo(() => {
@@ -172,11 +188,22 @@ export function DataTable<T>({
                 key={String(filter.key)}
                 value={activeFilters[String(filter.key)] || "all"}
                 onValueChange={(value) => {
-                  setActiveFilters((prev) => ({
-                    ...prev,
+                  const newFilters = {
+                    ...activeFilters,
                     [String(filter.key)]: value,
-                  }))
+                  }
+                  setActiveFilters(newFilters)
                   setCurrentPage(1)
+
+                  if (onFilterChange) {
+                    const cleanedFilters = { ...newFilters }
+                    Object.keys(cleanedFilters).forEach(key => {
+                        if (cleanedFilters[key] === 'all') {
+                            delete cleanedFilters[key]
+                        }
+                    })
+                    onFilterChange(cleanedFilters)
+                  }
                 }}
               >
                 <SelectTrigger className="w-[180px]">
@@ -199,6 +226,9 @@ export function DataTable<T>({
                 onClick={() => {
                   setActiveFilters({})
                   setCurrentPage(1)
+                  if (onFilterChange) {
+                    onFilterChange({})
+                  }
                 }}
                 className="h-9 px-2 lg:px-3"
               >

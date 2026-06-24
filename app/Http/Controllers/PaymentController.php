@@ -18,13 +18,13 @@ class PaymentController extends Controller
     {
         $query = Payment::with(['rental.property.parent', 'rental.tenant', 'invoice.items']);
 
-        if ($request->filled('category_id')) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $query->whereHas('rental.property', function ($p) use ($request) {
                 $p->where('property_category_id', $request->category_id);
             });
         }
 
-        if ($request->filled('property_id')) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->whereHas('rental.property', function ($p) use ($request) {
                 $p->where('id', $request->property_id)
                     ->orWhere('parent_id', $request->property_id);
@@ -45,7 +45,7 @@ class PaymentController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
+        if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
@@ -56,13 +56,13 @@ class PaymentController extends Controller
             ->where('status', 'active')
             ->where('next_payment_date', '<=', now()->addDays(30));
 
-        if ($request->filled('category_id')) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $futurePaymentsQuery->whereHas('property', function ($p) use ($request) {
                 $p->where('property_category_id', $request->category_id);
             });
         }
 
-        if ($request->filled('property_id')) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $futurePaymentsQuery->whereHas('property', function ($p) use ($request) {
                 $p->where('id', $request->property_id)
                     ->orWhere('parent_id', $request->property_id);
@@ -75,13 +75,13 @@ class PaymentController extends Controller
         $debtsQuery = Invoice::with(['rental.property.parent', 'rental.tenant', 'items'])
             ->where('status', '!=', 'paid');
 
-        if ($request->filled('category_id')) {
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
             $debtsQuery->whereHas('rental.property', function ($p) use ($request) {
                 $p->where('property_category_id', $request->category_id);
             });
         }
 
-        if ($request->filled('property_id')) {
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
             $debtsQuery->whereHas('rental.property', function ($p) use ($request) {
                 $p->where('id', $request->property_id)
                     ->orWhere('parent_id', $request->property_id);

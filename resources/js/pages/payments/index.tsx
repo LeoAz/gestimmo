@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from "@inertiajs/react"
+import { router, Head, Link, useForm } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Eye, Printer, AlertCircle, Calendar, History, Plus } from "lucide-react"
@@ -66,8 +66,15 @@ interface Props {
     organization?: any
 }
 
-export default function Index({ payments, futurePayments, debts, categories, properties }: Props) {
+export default function Index({ payments, futurePayments, debts, categories, properties, filters }: Props) {
     const [showCreateModal, setShowCreateModal] = React.useState(false)
+
+    const handleFilterChange = (newFilters: Record<string, string>) => {
+        router.get('/payments', newFilters, {
+            preserveState: true,
+            replace: true
+        })
+    }
 
     const { data, setData, post, processing, reset, errors } = useForm({
         invoice_id: "",
@@ -293,15 +300,17 @@ export default function Index({ payments, futurePayments, debts, categories, pro
                             data={payments}
                             columns={columns}
                             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
+                            initialFilters={filters}
+                            onFilterChange={handleFilterChange}
                             filters={[
                                 {
                                     label: "Catégorie",
-                                    key: "category_id",
+                                    key: "category_id" as any,
                                     options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                                 },
                                 {
                                     label: "Bien immobilier",
-                                    key: "property_id",
+                                    key: "property_id" as any,
                                     options: properties.map(p => ({ label: p.title, value: p.id.toString() }))
                                 }
                             ]}
@@ -313,15 +322,17 @@ export default function Index({ payments, futurePayments, debts, categories, pro
                             data={debts}
                             columns={debtColumns}
                             emptyMessage="Aucune créance en attente."
+                            initialFilters={filters}
+                            onFilterChange={handleFilterChange}
                             filters={[
                                 {
                                     label: "Catégorie",
-                                    key: "category_id",
+                                    key: "category_id" as any,
                                     options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                                 },
                                 {
                                     label: "Bien immobilier",
-                                    key: "property_id",
+                                    key: "property_id" as any,
                                     options: properties.map(p => ({ label: p.title, value: p.id.toString() }))
                                 }
                             ]}
@@ -332,16 +343,17 @@ export default function Index({ payments, futurePayments, debts, categories, pro
                         <DataTable
                             data={futurePayments}
                             columns={futureColumns}
-                            emptyMessage="Aucun paiement prévu prochainement."
+                            initialFilters={filters}
+                            onFilterChange={handleFilterChange}
                             filters={[
                                 {
                                     label: "Catégorie",
-                                    key: "category_id",
+                                    key: "category_id" as any,
                                     options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
                                 },
                                 {
                                     label: "Bien immobilier",
-                                    key: "property_id",
+                                    key: "property_id" as any,
                                     options: properties.map(p => ({ label: p.title, value: p.id.toString() }))
                                 }
                             ]}
