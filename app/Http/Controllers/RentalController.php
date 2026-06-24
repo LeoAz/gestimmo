@@ -38,17 +38,26 @@ class RentalController extends Controller
         }
 
         if ($request->filled('category_id')) {
-            $query->whereHas('property.category', function ($c) use ($request) {
-                $c->where('id', $request->category_id);
+            $query->whereHas('property', function ($p) use ($request) {
+                $p->where('property_category_id', $request->category_id);
+            });
+        }
+
+        if ($request->filled('property_id')) {
+            $query->whereHas('property', function ($p) use ($request) {
+                $p->where('id', $request->property_id)
+                    ->orWhere('parent_id', $request->property_id);
             });
         }
 
         $categories = PropertyCategory::all();
+        $properties = Property::whereNull('parent_id')->get();
 
         return Inertia::render('rentals/index', [
             'rentals' => $query->orderByDesc('id')->get(),
             'categories' => $categories,
-            'filters' => $request->only(['search', 'status', 'category_id']),
+            'properties' => $properties,
+            'filters' => $request->only(['search', 'status', 'category_id', 'property_id']),
         ]);
     }
 

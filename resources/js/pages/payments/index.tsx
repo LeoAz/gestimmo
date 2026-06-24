@@ -46,20 +46,27 @@ interface Category {
     name: string
 }
 
+interface Property {
+    id: number
+    title: string
+}
+
 interface Props {
     payments: Payment[]
     futurePayments: Rental[]
     debts: Invoice[] // Les dettes sont maintenant basées sur les factures impayées
     categories: Category[]
+    properties: Property[]
     filters: {
         search?: string
         status?: string
         category_id?: string
+        property_id?: string
     }
     organization?: any
 }
 
-export default function Index({ payments, futurePayments, debts, categories }: Props) {
+export default function Index({ payments, futurePayments, debts, categories, properties }: Props) {
     const [showCreateModal, setShowCreateModal] = React.useState(false)
 
     const { data, setData, post, processing, reset, errors } = useForm({
@@ -291,6 +298,11 @@ export default function Index({ payments, futurePayments, debts, categories }: P
                                     label: "Catégorie",
                                     key: "category_id",
                                     options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
+                                },
+                                {
+                                    label: "Bien immobilier",
+                                    key: "property_id",
+                                    options: properties.map(p => ({ label: p.title, value: p.id.toString() }))
                                 }
                             ]}
                         />
@@ -306,6 +318,11 @@ export default function Index({ payments, futurePayments, debts, categories }: P
                                     label: "Catégorie",
                                     key: "category_id",
                                     options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
+                                },
+                                {
+                                    label: "Bien immobilier",
+                                    key: "property_id",
+                                    options: properties.map(p => ({ label: p.title, value: p.id.toString() }))
                                 }
                             ]}
                         />
@@ -321,6 +338,11 @@ export default function Index({ payments, futurePayments, debts, categories }: P
                                     label: "Catégorie",
                                     key: "category_id",
                                     options: categories.map(c => ({ label: c.name, value: c.id.toString() }))
+                                },
+                                {
+                                    label: "Bien immobilier",
+                                    key: "property_id",
+                                    options: properties.map(p => ({ label: p.title, value: p.id.toString() }))
                                 }
                             ]}
                         />

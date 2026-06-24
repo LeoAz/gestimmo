@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Models\Property;
 use App\Models\PropertyCategory;
 use App\Models\Rental;
 use Illuminate\Http\Request;
@@ -16,8 +17,15 @@ class InvoiceController extends Controller
         $query = Invoice::with(['rental.tenant', 'rental.property.parent']);
 
         if ($request->filled('category_id')) {
-            $query->whereHas('rental.property.category', function ($c) use ($request) {
-                $c->where('id', $request->category_id);
+            $query->whereHas('rental.property', function ($p) use ($request) {
+                $p->where('property_category_id', $request->category_id);
+            });
+        }
+
+        if ($request->filled('property_id')) {
+            $query->whereHas('rental.property', function ($p) use ($request) {
+                $p->where('id', $request->property_id)
+                    ->orWhere('parent_id', $request->property_id);
             });
         }
 
@@ -26,11 +34,13 @@ class InvoiceController extends Controller
         }
 
         $categories = PropertyCategory::all();
+        $properties = Property::whereNull('parent_id')->get();
 
         return Inertia::render('invoices/index', [
             'invoices' => $query->latest()->paginate(10)->withQueryString(),
             'categories' => $categories,
-            'filters' => $request->only(['category_id', 'status']),
+            'properties' => $properties,
+            'filters' => $request->only(['category_id', 'status', 'property_id']),
             'rentals' => Rental::with(['tenant', 'property.parent'])->get(),
         ]);
     }
