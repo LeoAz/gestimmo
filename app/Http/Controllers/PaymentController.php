@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Organization;
 use App\Models\Payment;
+use App\Models\Property;
 use App\Models\Rental;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -14,7 +15,16 @@ class PaymentController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Payment::with(['rental.property', 'rental.tenant']);
+        $query = Payment::with(['rental.property.parent', 'rental.tenant', 'invoice.items']);
+
+        if ($request->filled('property_id')) {
+            $query->whereHas('rental.property', function ($q) use ($request) {
+                $q->where(function ($inner) use ($request) {
+                    $inner->where('id', $request->property_id)
+                        ->orWhere('parent_id', $request->property_id);
+                });
+            });
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -36,17 +46,40 @@ class PaymentController extends Controller
 
         $payments = $query->orderByDesc('payment_date')->get();
 
-        // Calcul des futurs paiements (ceux qui n'ont pas encore de facture mais dont la date de prochain paiement est passée ou proche)
-        $futurePayments = Rental::with(['property', 'tenant'])
+        // Calcul des futurs paiements
+        $futurePaymentsQuery = Rental::with(['property.parent', 'tenant'])
             ->where('status', 'active')
-            ->where('next_payment_date', '<=', now()->addDays(30))
-            ->get();
+            ->where('next_payment_date', '<=', now()->addDays(30));
 
-        // Créances à recouvrer (paiements de type 'rent' avec statut 'pending')
-        $debts = Payment::with(['rental.property', 'rental.tenant'])
-            ->where('status', 'pending')
-            ->where('type', 'rent')
-            ->get();
+        if ($request->filled('property_id')) {
+            $futurePaymentsQuery->whereHas('property', function ($q) use ($request) {
+                $q->where(function ($inner) use ($request) {
+                    $inner->where('id', $request->property_id)
+                        ->orWhere('parent_id', $request->property_id);
+                });
+            });
+        }
+
+        $futurePayments = $futurePaymentsQuery->get();
+
+        // Créances à recouvrer (factures impayées)
+        $debtsQuery = Invoice::with(['rental.property.parent', 'rental.tenant', 'items'])
+            ->where('status', '!=', 'paid');
+
+        if ($request->filled('property_id')) {
+            $debtsQuery->whereHas('rental.property', function ($q) use ($request) {
+                $q->where(function ($inner) use ($request) {
+                    $inner->where('id', $request->property_id)
+                        ->orWhere('parent_id', $request->property_id);
+                });
+            });
+        }
+
+        $debts = $debtsQuery->get();
+
+        $buildings = Property::whereHas('category', function ($query) {
+            $query->whereIn('slug', ['immeuble', 'batiment']);
+        })->get();
 
         $organization = Organization::first();
 
@@ -55,10 +88,11 @@ class PaymentController extends Controller
         }
 
         return Inertia::render('payments/index', [
-            'payments' => Payment::with(['rental.property.parent', 'rental.tenant', 'invoice.items'])->orderByDesc('payment_date')->get(),
+            'payments' => $payments,
             'futurePayments' => $futurePayments,
-            'debts' => Invoice::with(['rental.property.parent', 'rental.tenant', 'items'])->where('status', '!=', 'paid')->get(),
-            'filters' => $request->only(['search', 'status']),
+            'debts' => $debts,
+            'buildings' => $buildings,
+            'filters' => $request->only(['search', 'status', 'property_id']),
             'organization' => $organization,
         ]);
     }

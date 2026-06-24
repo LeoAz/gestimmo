@@ -1,7 +1,7 @@
 import { Head, Link, useForm } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Download, Eye, Printer, AlertCircle, Calendar, History, Plus } from "lucide-react"
+import { Eye, Printer, AlertCircle, Calendar, History, Plus } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -41,18 +41,25 @@ interface Rental {
     rent_amount: string
 }
 
+interface Building {
+    id: number
+    title: string
+}
+
 interface Props {
     payments: Payment[]
     futurePayments: Rental[]
     debts: Invoice[] // Les dettes sont maintenant basées sur les factures impayées
+    buildings: Building[]
     filters: {
         search?: string
         status?: string
+        property_id?: string
     }
     organization?: any
 }
 
-export default function Index({ payments, futurePayments, debts }: Props) {
+export default function Index({ payments, futurePayments, debts, buildings }: Props) {
     const [showCreateModal, setShowCreateModal] = React.useState(false)
 
     const { data, setData, post, processing, reset, errors } = useForm({
@@ -62,10 +69,6 @@ export default function Index({ payments, futurePayments, debts }: Props) {
         payment_method: "cash",
         notes: "",
     })
-
-    const handlePrint = () => {
-        window.print()
-    }
 
     const formatCurrency = (amount: string | number) => {
         return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF", minimumFractionDigits: 0 }).format(Number(amount))
@@ -283,6 +286,13 @@ export default function Index({ payments, futurePayments, debts }: Props) {
                             data={payments}
                             columns={columns}
                             searchKey={(row) => `${row.invoice_number} ${row.rental.tenant.first_name} ${row.rental.tenant.last_name}`}
+                            filters={[
+                                {
+                                    label: "Immeuble / Bâtiment",
+                                    key: "property_id",
+                                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                                }
+                            ]}
                         />
                     </TabsContent>
 
@@ -291,6 +301,13 @@ export default function Index({ payments, futurePayments, debts }: Props) {
                             data={debts}
                             columns={debtColumns}
                             emptyMessage="Aucune créance en attente."
+                            filters={[
+                                {
+                                    label: "Immeuble / Bâtiment",
+                                    key: "property_id",
+                                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                                }
+                            ]}
                         />
                     </TabsContent>
 
@@ -299,6 +316,13 @@ export default function Index({ payments, futurePayments, debts }: Props) {
                             data={futurePayments}
                             columns={futureColumns}
                             emptyMessage="Aucun paiement prévu prochainement."
+                            filters={[
+                                {
+                                    label: "Immeuble / Bâtiment",
+                                    key: "property_id",
+                                    options: buildings.map(b => ({ label: b.title, value: b.id.toString() }))
+                                }
+                            ]}
                         />
                     </TabsContent>
                 </Tabs>

@@ -17,8 +17,10 @@ class InvoiceController extends Controller
 
         if ($request->filled('property_id')) {
             $query->whereHas('rental.property', function ($q) use ($request) {
-                $q->where('id', $request->property_id)
-                    ->orWhere('parent_id', $request->property_id);
+                $q->where(function ($inner) use ($request) {
+                    $inner->where('id', $request->property_id)
+                        ->orWhere('parent_id', $request->property_id);
+                });
             });
         }
 
