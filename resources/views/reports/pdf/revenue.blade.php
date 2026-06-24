@@ -20,7 +20,15 @@
             <td>{{ $row->property_title }}</td>
             <td>{{ $row->tenant_name }}</td>
             <td>{{ \Carbon\Carbon::parse($row->payment_date)->format('d/m/Y') }}</td>
-            <td>{{ $row->billing_period ?? \Carbon\Carbon::parse($row->period_start)->format('m/Y') }}</td>
+            <td>
+                @if($row->billing_period)
+                    {{ $row->billing_period }}
+                @elseif($row->period_start)
+                    {{ \Carbon\Carbon::parse($row->period_start)->format('m/Y') }}
+                @else
+                    -
+                @endif
+            </td>
             <td>{{ $row->invoice_number }}</td>
             <td class="text-right">{{ number_format($row->amount, 0, ',', ' ') }} FCFA</td>
         </tr>

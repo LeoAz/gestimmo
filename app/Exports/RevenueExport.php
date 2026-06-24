@@ -41,11 +41,11 @@ class RevenueExport implements FromCollection, ShouldAutoSize, WithHeadings, Wit
 
     public function map($row): array
     {
-        $period = $row->billing_period ?? (
-            (isset($row->period_start) && isset($row->period_end))
-                ? (Carbon::parse($row->period_start)->format('d/m/Y').' - '.Carbon::parse($row->period_end)->format('d/m/Y'))
-                : ''
-        );
+        $period = $row->billing_period;
+
+        if (empty($period) && isset($row->period_start) && isset($row->period_end)) {
+            $period = Carbon::parse($row->period_start)->format('d/m/Y').' - '.Carbon::parse($row->period_end)->format('d/m/Y');
+        }
 
         return [
             $row->building_title ?? '-',

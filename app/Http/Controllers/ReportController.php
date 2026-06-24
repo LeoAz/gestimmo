@@ -94,6 +94,10 @@ class ReportController extends Controller
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
             ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
             ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
+            ->leftJoin('invoice_items', function ($join) {
+                $join->on('payments.invoice_id', '=', 'invoice_items.invoice_id')
+                    ->whereRaw('invoice_items.id = (SELECT MIN(id) FROM invoice_items WHERE invoice_id = payments.invoice_id)');
+            })
             ->where('payments.status', 'paid')
             ->whereNotNull('payments.invoice_id') // Uniquement sur encaissement des factures
             ->select(
@@ -108,10 +112,7 @@ class ReportController extends Controller
                 'payments.amount',
                 'payments.period_start',
                 'payments.period_end',
-                DB::raw(config('database.default') === 'sqlite'
-                    ? "strftime('%m/%Y', payments.period_start) as billing_period"
-                    : "DATE_FORMAT(payments.period_start, '%m/%Y') as billing_period"
-                )
+                'invoice_items.period as billing_period'
             );
 
         if ($request->filled('property_id') && $request->property_id !== 'all') {

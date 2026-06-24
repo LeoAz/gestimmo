@@ -159,7 +159,22 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
             { header: "Bien Immobilier", accessor: "property_title", sortable: true, sortKey: "property_title" },
             { header: "Locataire", accessor: "tenant_name", sortable: true, sortKey: "tenant_name" },
             { header: "Date", accessor: (row: any) => new Date(row.payment_date).toLocaleDateString(), sortable: true, sortKey: "payment_date" },
-            { header: "Période de facturation", accessor: (row: any) => row.billing_period ?? `${new Date(row.period_start).toLocaleDateString()} - ${new Date(row.period_end).toLocaleDateString()}`, sortable: true, sortKey: "period_start" },
+            {
+                header: "Période de facturation",
+                accessor: (row: any) => {
+                    if (row.billing_period) {
+                        return row.billing_period
+                    }
+
+                    if (row.period_start && row.period_end) {
+                        return `${new Date(row.period_start).toLocaleDateString()} - ${new Date(row.period_end).toLocaleDateString()}`
+                    }
+
+                    return "-"
+                },
+                sortable: true,
+                sortKey: "period_start"
+            },
             { header: "N° Facture", accessor: "invoice_number", sortable: true, sortKey: "invoice_number" },
             { header: "Montant", accessor: (row: any) => formatCurrency(row.amount), sortable: true, sortKey: "amount" },
         ],
