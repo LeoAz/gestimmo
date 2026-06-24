@@ -161,17 +161,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
             { header: "Date", accessor: (row: any) => new Date(row.payment_date).toLocaleDateString(), sortable: true, sortKey: "payment_date" },
             {
                 header: "Période de facturation",
-                accessor: (row: any) => {
-                    if (row.billing_period) {
-                        return row.billing_period
-                    }
-
-                    if (row.period_start && row.period_end) {
-                        return `${new Date(row.period_start).toLocaleDateString()} - ${new Date(row.period_end).toLocaleDateString()}`
-                    }
-
-                    return "-"
-                },
+                accessor: (row: any) => row.billing_period || "-",
                 sortable: true,
                 sortKey: "period_start"
             },
