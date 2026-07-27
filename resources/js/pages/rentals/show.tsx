@@ -23,12 +23,13 @@ interface Payment {
   amount: string
   payment_date: string | null
   payment_method: string | null
-  period_start: string
-  period_end: string
+  period_start: string | null
+  period_end: string | null
   type: string
   status: 'pending' | 'paid'
   invoice_number: string
   notes: string | null
+  is_advance_payment: boolean
 }
 
 interface InvoiceItem {
@@ -146,11 +147,30 @@ export default function Show({ rental }: Props) {
     },
     {
       header: "Date",
-      accessor: (row: any) => row.payment_date ? format(new Date(row.payment_date), "dd/MM/yyyy") : "-",
+      accessor: (row: Payment) => row.payment_date ? format(new Date(row.payment_date), "dd/MM/yyyy") : "-",
+    },
+    {
+        header: "Période",
+        accessor: (row: Payment) => (
+            <span className="text-xs">
+                {row.period_start && row.period_end
+                    ? `${format(new Date(row.period_start), "MMM yyyy", { locale: fr })} - ${format(new Date(row.period_end), "MMM yyyy", { locale: fr })}`
+                    : "-"
+                }
+            </span>
+        ),
+    },
+    {
+        header: "Type",
+        accessor: (row: Payment) => (
+            <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                {row.type === 'rent' ? 'Loyer' : row.type === 'deposit' ? 'Caution' : row.type}
+            </Badge>
+        )
     },
     {
       header: "Montant",
-      accessor: (row: any) => (
+      accessor: (row: Payment) => (
         <div className="text-right font-semibold">
           {formatCurrency(row.amount)}
         </div>
@@ -159,7 +179,7 @@ export default function Show({ rental }: Props) {
     },
     {
       header: "Méthode",
-      accessor: (row: any) => (
+      accessor: (row: Payment) => (
         <span className="text-xs italic text-muted-foreground">
           {row.payment_method === 'cash' ? 'Espèces' :
            row.payment_method === 'bank_transfer' ? 'Virement' :
@@ -168,10 +188,34 @@ export default function Show({ rental }: Props) {
       ),
     },
     {
+        header: "Statut",
+        accessor: (row: Payment) => (
+            <Badge variant={row.status === 'paid' ? 'success' : 'destructive'} className="text-[10px] uppercase font-bold">
+                {row.status === 'paid' ? 'Payé' : 'En attente'}
+            </Badge>
+        )
+    },
+    {
       header: "Actions",
-      accessor: (row: any) => (
+      accessor: (row: Payment) => (
         <div className="flex justify-end gap-2">
-          {/* Action d'impression supprimée car gérée au niveau de la facture */}
+            {row.notes && (
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Info className="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                        <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <h4 className="font-medium leading-none">Notes</h4>
+                                <p className="text-sm text-muted-foreground">{row.notes}</p>
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )}
         </div>
       ),
       className: "text-right"
