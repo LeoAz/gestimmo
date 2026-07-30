@@ -1,116 +1,44 @@
-import { Head, Link, useForm } from "@inertiajs/react"
+import { Head, Link } from "@inertiajs/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
-  Building2,
-  Calendar,
-  History,
   ArrowLeft,
-  Home,
   MapPin,
-  Maximize,
   Bed,
   Bath,
   ChefHat,
-  Eye,
-  CheckCircle2,
+  Building2,
+  Maximize,
+  History,
   Clock,
   Printer,
-  Key as KeyIcon,
-  Plus,
+  CheckCircle2,
+  Calendar,
   Search,
   ChevronLeft,
   ChevronRight
 } from "lucide-react"
 import * as React from "react"
-import { toast } from "sonner"
 
-import { index as propertiesIndex, addApartment as addApartmentAction } from '@/actions/App/Http/Controllers/PropertyController'
+import { index as propertiesIndex } from '@/actions/App/Http/Controllers/PropertyController'
 import { DataTable } from "@/components/data-table"
-import InputError from "@/components/input-error"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TableCell, TableRow } from "@/components/ui/table"
 import AppLayout from "@/layouts/app-layout"
+
+import { ApartmentModal } from "./partials/apartment-modal"
+import { UnitsSection } from "./partials/units-section"
 import { PropertyForm } from "./property-form"
-
-interface Apartment {
-  id: number
-  title: string
-  floor_number: number
-  price: string | null
-  surface_area: string | null
-  bedrooms_count: number | null
-  bathrooms_count: number | null
-  living_rooms_count: number | null
-  balconies_count: number | null
-  kitchens_count: number | null
-  has_kitchen: boolean
-  status: string
-}
-
-interface Payment {
-  id: number
-  amount: string
-  payment_date: string
-  invoice_number: string
-  status: string
-}
-
-interface Tenant {
-  id: number
-  first_name: string
-  last_name: string
-}
-
-interface Rental {
-  id: number
-  tenant: Tenant
-  rent_amount: string
-  start_date: string
-  next_payment_date: string | null
-  status: 'active' | 'completed' | 'cancelled'
-  payments: Payment[]
-}
-
-interface Property {
-  id: number
-  property_category_id: number
-  title: string
-  description: string | null
-  address: string | null
-  city: string | null
-  price: string | null
-  type: string | null
-  surface_area: string | null
-  bedrooms_count: number | null
-  bathrooms_count: number | null
-  living_rooms_count: number | null
-  balconies_count: number | null
-  kitchens_count: number | null
-  has_kitchen: boolean
-  has_solar_panels: boolean
-  has_generator: boolean
-  status: 'available' | 'sold' | 'rented'
-  parent_id: number | null
-  category: {
-    id: number
-    name: string
-    slug: string
-  }
-  apartments: Apartment[]
-}
+import type { Apartment, Property, Rental } from "./types"
 
 interface Props {
   property: Property
@@ -125,31 +53,12 @@ interface Props {
 export default function Show({ property, rentals, categories }: Props) {
   const [isApartmentModalOpen, setIsApartmentModalOpen] = React.useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false)
+  const [selectedApartment, setSelectedApartment] = React.useState<Apartment | null>(null)
 
   // Rentals state
   const [rentalsSearch, setRentalsSearch] = React.useState("")
   const [rentalsPage, setRentalsPage] = React.useState(1)
   const rentalsItemsPerPage = 4
-
-  // Apartments state
-  const [apartmentsSearch, setApartmentsSearch] = React.useState("")
-  const [apartmentsPage, setApartmentsPage] = React.useState(1)
-  const apartmentsItemsPerPage = 5
-
-  const { data, setData, post, processing, errors, reset } = useForm({
-    title: "",
-    floor_number: "",
-    price: "",
-    surface_area: "",
-    rooms_count: "",
-    bedrooms_count: "",
-    bathrooms_count: "",
-    living_rooms_count: "",
-    balconies_count: "",
-    kitchens_count: "",
-    has_kitchen: true,
-    status: "available",
-  })
 
   const formatCurrency = (value: string | number | null) => {
     if (value === null) {
@@ -171,7 +80,7 @@ export default function Show({ property, rentals, categories }: Props) {
     rented: "secondary",
   } as const
 
-  const activeRentals = rentals.filter(r => r.status === 'active')
+  const activeRentals = rentals.filter((r) => r.status === 'active')
 
   const filteredRentals = React.useMemo(() => {
     return activeRentals.filter((rental) => {
@@ -189,39 +98,21 @@ export default function Show({ property, rentals, categories }: Props) {
 
   const rentalsTotalPages = Math.ceil(filteredRentals.length / rentalsItemsPerPage)
 
-  const filteredApartments = React.useMemo(() => {
-    return property.apartments.filter((apt) =>
-      apt.title.toLowerCase().includes(apartmentsSearch.toLowerCase())
-    )
-  }, [property.apartments, apartmentsSearch])
-
-  const paginatedApartments = React.useMemo(() => {
-    const startIndex = (apartmentsPage - 1) * apartmentsItemsPerPage
-
-    return filteredApartments.slice(startIndex, startIndex + apartmentsItemsPerPage)
-  }, [filteredApartments, apartmentsPage])
-
-  const apartmentsTotalPages = Math.ceil(filteredApartments.length / apartmentsItemsPerPage)
-
   const allPayments = React.useMemo(() => {
-    return rentals.flatMap(r =>
-      r.payments.map(p => ({
-        ...p,
-        tenant_name: `${r.tenant.first_name} ${r.tenant.last_name}`,
-        rental_id: r.id
-      }))
-    ).sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+    return rentals
+      .flatMap((r) =>
+        r.payments.map((p) => ({
+          ...p,
+          tenant_name: `${r.tenant.first_name} ${r.tenant.last_name}`,
+          rental_id: r.id,
+        })),
+      )
+      .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
   }, [rentals])
 
-  const handleAddApartment = (e: React.FormEvent) => {
-    e.preventDefault()
-    post(addApartmentAction({ property: property.id }).url, {
-      onSuccess: () => {
-        setIsApartmentModalOpen(false)
-        reset()
-        toast.success("Appartement ajouté avec succès")
-      }
-    })
+  const handleEditApartment = (apt: Apartment) => {
+    setSelectedApartment(apt)
+    setIsApartmentModalOpen(true)
   }
 
   const rentalColumns = [
@@ -306,6 +197,9 @@ export default function Show({ property, rentals, categories }: Props) {
     }
   ]
 
+  const isTerrain = property.category.slug === 'terrain' || property.category.slug === 'terrain-vide' || property.type === 'TERRAIN VIDE'
+  const isAvailableTerrainVide = property.category.slug === 'terrain-vide' && property.status === 'available'
+
   return (
     <>
       <Head title={property.title} />
@@ -340,9 +234,11 @@ export default function Show({ property, rentals, categories }: Props) {
              <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
                 Modifier le bien
              </Button>
-             <Button asChild>
-                <Link href={`/rentals/create?property_id=${property.id}`}>Nouvelle location</Link>
-             </Button>
+             {(!isTerrain || isAvailableTerrainVide) && (
+               <Button asChild>
+                  <Link href={`/rentals/create?property_id=${property.id}`}>Nouvelle location</Link>
+               </Button>
+             )}
           </div>
         </div>
 
@@ -441,113 +337,13 @@ export default function Show({ property, rentals, categories }: Props) {
             )}
 
             {/* Units Section */}
-            {property.parent_id === null && (
-              <section className="space-y-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-2">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-blue-500" />
-                      Unités & Appartements
-                    </h2>
-                    <Badge variant="secondary">{property.apartments.length} unités</Badge>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-full sm:w-64">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Rechercher une unité..."
-                        className="pl-9"
-                        value={apartmentsSearch}
-                        onChange={(e) => {
-                          setApartmentsSearch(e.target.value)
-                          setApartmentsPage(1)
-                        }}
-                      />
-                    </div>
-                    <Button size="sm" onClick={() => setIsApartmentModalOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Ajouter
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid gap-3">
-                  {paginatedApartments.length > 0 ? (
-                    <>
-                      {paginatedApartments.map((apt) => (
-                        <div key={apt.id} className="group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/30 transition-all">
-                          <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                               <Home className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <p className="font-semibold">{apt.title}</p>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                                <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> Étage {apt.floor_number}</span>
-                                <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {apt.bedrooms_count || 0} ch</span>
-                                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> {apt.living_rooms_count || 0} sal</span>
-                                <span className="flex items-center gap-1"><Maximize className="h-3 w-3" /> {apt.balconies_count || 0} bal</span>
-                                <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> {apt.kitchens_count || 0} cuis</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-6">
-                            <div className="text-right">
-                              <p className="font-bold">{formatCurrency(apt.price)}</p>
-                              <Badge variant={apt.status === 'available' ? 'outline' : 'secondary'} className="text-[10px] h-5 px-1.5">
-                                {statusLabels[apt.status as keyof typeof statusLabels] || apt.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="icon" asChild title="Voir détails">
-                                 <Link href={`/properties/${apt.id}`}>
-                                    <Eye className="h-4 w-4" />
-                                 </Link>
-                              </Button>
-                              {apt.status === 'available' && (
-                                <Button variant="ghost" size="icon" asChild title="Nouvelle location">
-                                  <Link href={`/rentals/create?property_id=${apt.id}`}>
-                                    <KeyIcon className="h-4 w-4" />
-                                  </Link>
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {apartmentsTotalPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 pt-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setApartmentsPage(p => Math.max(1, p - 1))}
-                            disabled={apartmentsPage === 1}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            Page {apartmentsPage} sur {apartmentsTotalPages}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setApartmentsPage(p => Math.min(apartmentsTotalPages, p + 1))}
-                            disabled={apartmentsPage === apartmentsTotalPages}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-center py-8 text-muted-foreground italic border rounded-lg border-dashed">
-                      {apartmentsSearch ? "Aucune unité ne correspond à votre recherche." : "Aucun appartement enregistré pour ce bien."}
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
+            <UnitsSection
+              property={property}
+              onAddApartment={() => setIsApartmentModalOpen(true)}
+              onEditApartment={handleEditApartment}
+              formatCurrency={formatCurrency}
+              statusLabels={statusLabels}
+            />
 
             {/* Payment History Section */}
             <section className="space-y-4">
@@ -598,66 +394,68 @@ export default function Show({ property, rentals, categories }: Props) {
 
           <aside className="lg:col-span-4 space-y-8">
             {/* Features Section */}
-            <div className="space-y-4">
-              <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Caractéristiques</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                  <Bed className="h-5 w-5 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">
-                      {property.bedrooms_count && property.bedrooms_count > 1 ? "Chambres" : "Chambre"}
-                    </span>
-                    <span className="font-bold">{property.bedrooms_count || 0}</span>
+            {!isTerrain && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Caractéristiques</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                    <Bed className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">
+                        {property.bedrooms_count && property.bedrooms_count > 1 ? "Chambres" : "Chambre"}
+                      </span>
+                      <span className="font-bold">{property.bedrooms_count || 0}</span>
+                    </div>
                   </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                    <Bath className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">
+                        {property.bathrooms_count && property.bathrooms_count > 1 ? "Salles de bain" : "Salle de bain"}
+                      </span>
+                      <span className="font-bold">{property.bathrooms_count || 0}</span>
+                    </div>
+                  </div>
+
+                  {property.living_rooms_count !== null && property.living_rooms_count > 0 && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Building2 className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">
+                          {property.living_rooms_count > 1 ? "Salons" : "Salon"}
+                        </span>
+                        <span className="font-bold">{property.living_rooms_count}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {property.balconies_count !== null && property.balconies_count > 0 && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Maximize className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">
+                          {property.balconies_count > 1 ? "Balcons" : "Balcon"}
+                        </span>
+                        <span className="font-bold">{property.balconies_count}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {property.kitchens_count !== null && property.kitchens_count > 0 && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <ChefHat className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">
+                          {property.kitchens_count > 1 ? "Cuisines" : "Cuisine"}
+                        </span>
+                        <span className="font-bold">{property.kitchens_count}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                  <Bath className="h-5 w-5 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">
-                      {property.bathrooms_count && property.bathrooms_count > 1 ? "Salles de bain" : "Salle de bain"}
-                    </span>
-                    <span className="font-bold">{property.bathrooms_count || 0}</span>
-                  </div>
-                </div>
-
-                {property.living_rooms_count !== null && property.living_rooms_count > 0 && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                    <Building2 className="h-5 w-5 text-muted-foreground" />
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">
-                        {property.living_rooms_count > 1 ? "Salons" : "Salon"}
-                      </span>
-                      <span className="font-bold">{property.living_rooms_count}</span>
-                    </div>
-                  </div>
-                )}
-
-                {property.balconies_count !== null && property.balconies_count > 0 && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                    <Maximize className="h-5 w-5 text-muted-foreground" />
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">
-                        {property.balconies_count > 1 ? "Balcons" : "Balcon"}
-                      </span>
-                      <span className="font-bold">{property.balconies_count}</span>
-                    </div>
-                  </div>
-                )}
-
-                {property.kitchens_count !== null && property.kitchens_count > 0 && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                    <ChefHat className="h-5 w-5 text-muted-foreground" />
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">
-                        {property.kitchens_count > 1 ? "Cuisines" : "Cuisine"}
-                      </span>
-                      <span className="font-bold">{property.kitchens_count}</span>
-                    </div>
-                  </div>
-                )}
               </div>
-            </div>
+            )}
 
             <Button className="w-full" variant="outline" asChild>
               <Link href={propertiesIndex().url}>
@@ -668,126 +466,13 @@ export default function Show({ property, rentals, categories }: Props) {
         </div>
       </div>
 
-      <Dialog open={isApartmentModalOpen} onOpenChange={setIsApartmentModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Ajouter un appartement</DialogTitle>
-            <DialogDescription>
-              Saisissez les informations du nouvel appartement pour ce bien.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAddApartment} className="space-y-4 py-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="apt-title">Titre / N°</Label>
-                <Input
-                  id="apt-title"
-                  value={data.title}
-                  onChange={(e) => setData("title", e.target.value)}
-                  placeholder="Ex: A101"
-                  required
-                />
-                <InputError message={errors.title} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-floor">Étage</Label>
-                <Input
-                  id="apt-floor"
-                  type="number"
-                  value={data.floor_number}
-                  onChange={(e) => setData("floor_number", e.target.value)}
-                  required
-                />
-                <InputError message={errors.floor_number} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-price">Prix de location</Label>
-                <Input
-                  id="apt-price"
-                  type="number"
-                  value={data.price}
-                  onChange={(e) => setData("price", e.target.value)}
-                />
-                <InputError message={errors.price} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="apt-bedrooms">Chambres</Label>
-                <Input
-                  id="apt-bedrooms"
-                  type="number"
-                  value={data.bedrooms_count}
-                  onChange={(e) => setData("bedrooms_count", e.target.value)}
-                />
-                <InputError message={errors.bedrooms_count} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-living">Salons</Label>
-                <Input
-                  id="apt-living"
-                  type="number"
-                  value={data.living_rooms_count}
-                  onChange={(e) => setData("living_rooms_count", e.target.value)}
-                />
-                <InputError message={errors.living_rooms_count} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-balconies">Balcons</Label>
-                <Input
-                  id="apt-balconies"
-                  type="number"
-                  value={data.balconies_count}
-                  onChange={(e) => setData("balconies_count", e.target.value)}
-                />
-                <InputError message={errors.balconies_count} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-kitchens">Cuisines</Label>
-                <Input
-                  id="apt-kitchens"
-                  type="number"
-                  value={data.kitchens_count}
-                  onChange={(e) => setData("kitchens_count", e.target.value)}
-                />
-                <InputError message={errors.kitchens_count} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-bathrooms">Toilettes</Label>
-                <Input
-                  id="apt-bathrooms"
-                  type="number"
-                  value={data.bathrooms_count}
-                  onChange={(e) => setData("bathrooms_count", e.target.value)}
-                />
-                <InputError message={errors.bathrooms_count} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apt-status">Statut</Label>
-                <Select onValueChange={(value) => setData("status", value)} value={data.status}>
-                  <SelectTrigger id="apt-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Disponible</SelectItem>
-                    <SelectItem value="rented">Loué</SelectItem>
-                    <SelectItem value="sold">Vendu</SelectItem>
-                  </SelectContent>
-                </Select>
-                <InputError message={errors.status} />
-              </div>
-            </div>
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsApartmentModalOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={processing}>
-                Enregistrer
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ApartmentModal
+        isOpen={isApartmentModalOpen}
+        onOpenChange={setIsApartmentModalOpen}
+        propertyId={property.id}
+        apartment={selectedApartment}
+        onSuccess={() => setSelectedApartment(null)}
+      />
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="sm:max-w-[700px] h-[90vh] flex flex-col p-0">

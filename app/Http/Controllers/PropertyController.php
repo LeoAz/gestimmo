@@ -165,7 +165,12 @@ class PropertyController extends Controller
      */
     public function destroy(Property $property)
     {
+        $parentId = $property->parent_id;
         $property->delete();
+
+        if ($parentId) {
+            return back()->with('success', 'Unité supprimée avec succès.');
+        }
 
         return redirect()->route('properties.index')
             ->with('success', 'Bien immobilier supprimé avec succès.');

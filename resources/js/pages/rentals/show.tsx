@@ -180,7 +180,7 @@ export default function Show({ rental }: Props) {
     {
       header: "Méthode",
       accessor: (row: Payment) => (
-        <span className="text-xs italic text-muted-foreground">
+        <span className="text-[10px] italic text-muted-foreground">
           {row.payment_method === 'cash' ? 'Espèces' :
            row.payment_method === 'bank_transfer' ? 'Virement' :
            row.payment_method === 'balance' ? 'Solde/Avance' : 'Mobile Money'}
@@ -196,29 +196,12 @@ export default function Show({ rental }: Props) {
         )
     },
     {
-      header: "Actions",
+      header: "Notes",
       accessor: (row: Payment) => (
-        <div className="flex justify-end gap-2">
-            {row.notes && (
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Info className="h-4 w-4" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80">
-                        <div className="grid gap-4">
-                            <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Notes</h4>
-                                <p className="text-sm text-muted-foreground">{row.notes}</p>
-                            </div>
-                        </div>
-                    </PopoverContent>
-                </Popover>
-            )}
-        </div>
+        <span className="text-[10px] text-muted-foreground line-clamp-2 max-w-[200px]" title={row.notes || ""}>
+            {row.notes || "-"}
+        </span>
       ),
-      className: "text-right"
     }
   ]
 

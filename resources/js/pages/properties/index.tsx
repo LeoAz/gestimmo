@@ -20,32 +20,7 @@ import type { BreadcrumbItem } from "@/types"
 
 import { PropertyForm } from "./property-form"
 
-interface Property {
-  id: number
-  property_category_id: number
-  parent_id: number | null
-  title: string
-  description: string | null
-  address: string | null
-  city: string | null
-  floor_number: number | null
-  price: string | null
-  surface_area: string | null
-  rooms_count: number | null
-  bedrooms_count: number | null
-  bathrooms_count: number | null
-  living_rooms_count: number | null
-  has_kitchen: boolean
-  has_solar_panels: boolean
-  has_generator: boolean
-  status: 'available' | 'sold' | 'rented'
-  category: {
-    id: number
-    name: string
-    slug: string
-  }
-  apartments?: any[]
-}
+import type { Property } from "./types"
 
 interface Category {
   id: number
@@ -91,8 +66,12 @@ export default function Index({ properties, categories }: Props) {
     {
       header: "Détails",
       accessor: (row: Property) => {
-        if (row.category.slug === 'villa' && row.type) {
+        if ((row.category.slug === 'villa' || row.category.slug === 'appartement') && row.type) {
           return row.type
+        }
+
+        if (row.category.slug === 'terrain' || row.category.slug === 'terrain-vide') {
+          return row.surface_area ? `${row.surface_area} m²` : "Terrain"
         }
 
         if (row.apartments && row.apartments.length > 0) {

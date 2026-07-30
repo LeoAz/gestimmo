@@ -1,5 +1,4 @@
 import { useForm, usePage } from "@inertiajs/react"
-import { Plus, Trash } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -13,35 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { store, update } from "@/routes/properties"
 
+import type { Property } from "./types"
+
 interface Category {
   id: number
   name: string
   slug: string
-}
-
-interface Property {
-  id: number
-  property_category_id: number
-  parent_id: number | null
-  title: string
-  description: string | null
-  address: string | null
-  city: string | null
-  floor_number: number | null
-  price: string | null
-  type: string | null
-  surface_area: string | null
-  rooms_count: number | null
-  bedrooms_count: number | null
-  bathrooms_count: number | null
-  living_rooms_count: number | null
-  balconies_count: number | null
-  kitchens_count: number | null
-  has_kitchen: boolean
-  has_solar_panels: boolean
-  has_generator: boolean
-  status: 'available' | 'sold' | 'rented'
-  apartments?: any[]
 }
 
 interface PropertyFormProps {
@@ -198,6 +174,7 @@ export function PropertyForm({ property, categories, onSuccess, onCancel }: Prop
                 <SelectItem value="R+2">R+2</SelectItem>
                 <SelectItem value="R+3">R+3</SelectItem>
                 <SelectItem value="R+4">R+4</SelectItem>
+                <SelectItem value="TERRAIN VIDE">TERRAIN VIDE</SelectItem>
               </SelectContent>
             </Select>
             <InputError message={errors.type} />
