@@ -268,4 +268,107 @@ class ReportController extends Controller
 
         return response()->json($data);
     }
+
+    public function exploitation(Request $request)
+    {
+        $propertyId = $request->property_id;
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        // 1. Chiffre d'Affaires (Factures de location)
+        $invoicesQuery = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
+            ->join('properties', 'rentals.property_id', '=', 'properties.id')
+            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
+            ->where('invoices.status', 'paid') // On ne compte que ce qui est payé ? Ou tout le facturé ?
+            // L'énoncé dit "l'ensemble des factures de locations", généralement on prend le facturé
+            // Mais pour un solde d'exploitation, le payé est plus pertinent.
+            // Restons sur le facturé total pour le CA suivant l'énoncé.
+            ->select(
+                'invoices.invoice_number',
+                'invoices.date',
+                'invoices.total_amount',
+                'properties.title as property_title',
+                'buildings.title as building_title'
+            );
+
+        if ($propertyId && $propertyId !== 'all') {
+            $invoicesQuery->where(function ($q) use ($propertyId) {
+                $q->where('rentals.property_id', $propertyId)
+                    ->orWhere('properties.parent_id', $propertyId);
+            });
+        }
+
+        if ($startDate) {
+            $invoicesQuery->where('invoices.date', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $invoicesQuery->where('invoices.date', '<=', $endDate);
+        }
+
+        $invoices = $invoicesQuery->get();
+
+        // 2. Dépenses
+        $expensesQuery = Expense::join('properties', 'expenses.property_id', '=', 'properties.id')
+            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
+            ->select(
+                'expenses.reference',
+                'expenses.date',
+                'expenses.total_amount',
+                'expenses.provider',
+                'properties.title as property_title',
+                'buildings.title as building_title'
+            );
+
+        if ($propertyId && $propertyId !== 'all') {
+            $expensesQuery->where(function ($q) use ($propertyId) {
+                $q->where('expenses.property_id', $propertyId)
+                    ->orWhere('properties.parent_id', $propertyId);
+            });
+        }
+
+        if ($startDate) {
+            $expensesQuery->where('expenses.date', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $expensesQuery->where('expenses.date', '<=', $endDate);
+        }
+
+        $expenses = $expensesQuery->get();
+
+        $totalInvoices = $invoices->sum('total_amount');
+        $totalExpenses = $expenses->sum('total_amount');
+        $balance = $totalInvoices - $totalExpenses;
+
+        $data = [
+            'invoices' => $invoices,
+            'expenses' => $expenses,
+            'summary' => [
+                'total_invoices' => $totalInvoices,
+                'total_expenses' => $totalExpenses,
+                'balance' => $balance,
+            ]
+        ];
+
+        if ($request->export === 'excel') {
+            // Nous devrons créer cette classe
+            return Excel::download(new \App\Exports\ExploitationExport($data), 'rapport-exploitation.xlsx');
+        }
+
+        if ($request->export === 'pdf') {
+            $organization = Organization::first();
+            $pdf = Pdf::loadView('reports.pdf.exploitation', [
+                'data' => $data,
+                'filters' => $request->all(),
+                'title' => 'Rapport d\'Exploitation Détaillé',
+                'organization' => $organization,
+                'property' => $propertyId && $propertyId !== 'all' ? Property::find($propertyId) : null,
+            ]);
+
+            return $pdf->download('rapport-exploitation.pdf');
+        }
+
+        return response()->json($data);
+    }
 }

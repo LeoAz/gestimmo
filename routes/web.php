@@ -48,6 +48,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/revenue', [ReportController::class, 'revenue'])->name('revenue');
         Route::get('/availability', [ReportController::class, 'availability'])->name('availability');
         Route::get('/forecast', [ReportController::class, 'forecast'])->name('forecast');
+        Route::get('/exploitation', [ReportController::class, 'exploitation'])->name('exploitation');
     });
 
     Route::prefix('notifications')->name('notifications.')->group(function () {

@@ -1,6 +1,6 @@
 import { Head } from "@inertiajs/react"
 import { format } from "date-fns"
-import { Check, ChevronsUpDown, FileText, TrendingUp, AlertCircle, Home, Download, Printer } from "lucide-react"
+import { Check, ChevronsUpDown, FileText, TrendingUp, AlertCircle, Home, Download, Printer, Calculator } from "lucide-react"
 import * as React from "react"
 
 import { DataTable } from "@/components/data-table"
@@ -47,7 +47,7 @@ interface Props {
     }
 }
 
-type ReportType = 'late_payments' | 'revenue' | 'availability' | 'forecast'
+type ReportType = 'late_payments' | 'revenue' | 'availability' | 'forecast' | 'exploitation'
 
 export default function ReportsIndex({ properties, categories, filters }: Props) {
     const [activeReport, setActiveReport] = React.useState<ReportType>('late_payments')
@@ -87,7 +87,32 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
             const data = await response.json()
 
             if (!signal.aborted) {
-                setReportData(data)
+                if (activeReport === 'exploitation') {
+                    // Transformer les données pour le tableau
+                    const flattenedData = [
+                        ...data.invoices.map((inv: any) => ({
+                            type: 'invoice',
+                            reference: inv.invoice_number,
+                            date: inv.date,
+                            property_title: inv.property_title,
+                            party: 'Locataire',
+                            amount: inv.total_amount
+                        })),
+                        ...data.expenses.map((exp: any) => ({
+                            type: 'expense',
+                            reference: exp.reference,
+                            date: exp.date,
+                            property_title: exp.property_title,
+                            party: exp.provider,
+                            amount: exp.total_amount
+                        }))
+                    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+                    // On stocke aussi le résumé quelque part ou on le calcule dans le footer
+                    setReportData(flattenedData)
+                } else {
+                    setReportData(data)
+                }
             }
         } catch (error: any) {
             if (error.name !== 'AbortError') {
@@ -202,6 +227,14 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                 sortable: true,
                 sortKey: "amount_expected"
             },
+        ],
+        exploitation: [
+            { header: "Type", accessor: (row: any) => row.type === 'invoice' ? <span className="text-green-600 font-medium">Revenu</span> : <span className="text-red-600 font-medium">Dépense</span> },
+            { header: "Référence", accessor: "reference" },
+            { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
+            { header: "Bien Immobilier", accessor: "property_title" },
+            { header: "Tiers", accessor: "party" },
+            { header: "Montant", accessor: (row: any) => <span className={row.type === 'invoice' ? "text-green-600" : "text-red-600"}>{formatCurrency(row.amount)}</span> },
         ]
     }
 
@@ -209,7 +242,8 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         late_payments: "invoice_number",
         revenue: "invoice_number",
         availability: "title",
-        forecast: "tenant_name"
+        forecast: "tenant_name",
+        exploitation: "reference"
     }
 
     const reports = [
@@ -217,6 +251,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         { id: 'revenue', title: 'Chiffre d\'Affaire', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
         { id: 'availability', title: 'Disponibilité des Biens', icon: Home, color: 'text-amber-600', bg: 'bg-amber-50' },
         { id: 'forecast', title: 'Prévisions & Recouvrement', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { id: 'exploitation', title: 'Exploitation Détaillé', icon: Calculator, color: 'text-purple-600', bg: 'bg-purple-50' },
     ]
 
     const getFooter = () => {
@@ -240,6 +275,13 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                 total = reportData.reduce((acc, curr) => acc + (Number(curr.amount_expected) - Number(curr.amount_collected)), 0)
                 colSpan = 5
                 break
+            case 'exploitation': {
+                const rev = reportData.filter(r => r.type === 'invoice').reduce((acc, curr) => acc + Number(curr.amount), 0)
+                const exp = reportData.filter(r => r.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0)
+                total = rev - exp
+                colSpan = 5
+                break
+            }
             default:
                 return null
         }
