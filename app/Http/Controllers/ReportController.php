@@ -279,13 +279,10 @@ class ReportController extends Controller
         $invoicesQuery = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
             ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
-            ->where('invoices.status', 'paid') // On ne compte que ce qui est payé ? Ou tout le facturé ?
-            // L'énoncé dit "l'ensemble des factures de locations", généralement on prend le facturé
-            // Mais pour un solde d'exploitation, le payé est plus pertinent.
-            // Restons sur le facturé total pour le CA suivant l'énoncé.
             ->select(
                 'invoices.invoice_number',
                 'invoices.date',
+                'invoices.status',
                 'invoices.total_amount',
                 'properties.title as property_title',
                 'buildings.title as building_title'
@@ -296,6 +293,10 @@ class ReportController extends Controller
                 $q->where('rentals.property_id', $propertyId)
                     ->orWhere('properties.parent_id', $propertyId);
             });
+        }
+
+        if ($request->category_id && $request->category_id !== 'all') {
+            $invoicesQuery->where('properties.category_id', $request->category_id);
         }
 
         if ($startDate) {
@@ -327,6 +328,10 @@ class ReportController extends Controller
             });
         }
 
+        if ($request->category_id && $request->category_id !== 'all') {
+            $expensesQuery->where('properties.category_id', $request->category_id);
+        }
+
         if ($startDate) {
             $expensesQuery->where('expenses.date', '>=', $startDate);
         }
@@ -336,6 +341,11 @@ class ReportController extends Controller
         }
 
         $expenses = $expensesQuery->get();
+
+        if ($request->category_id && $request->category_id !== 'all') {
+            $invoicesQuery->where('properties.category_id', $request->category_id);
+        }
+        $invoices = $invoicesQuery->get();
 
         $totalInvoices = $invoices->sum('total_amount');
         $totalExpenses = $expenses->sum('total_amount');

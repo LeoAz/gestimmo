@@ -58,6 +58,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
     const [startDate, setStartDate] = React.useState(filters.start_date || "")
     const [endDate, setEndDate] = React.useState(filters.end_date || "")
     const [reportData, setReportData] = React.useState<any[]>([])
+    const [exploitationData, setExploitationData] = React.useState<any>(null)
     const [loading, setLoading] = React.useState(false)
 
     const fetchReportData = React.useCallback(async (signal: AbortSignal) => {
@@ -88,28 +89,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
 
             if (!signal.aborted) {
                 if (activeReport === 'exploitation') {
-                    // Transformer les données pour le tableau
-                    const flattenedData = [
-                        ...data.invoices.map((inv: any) => ({
-                            type: 'invoice',
-                            reference: inv.invoice_number,
-                            date: inv.date,
-                            property_title: inv.property_title,
-                            party: 'Locataire',
-                            amount: inv.total_amount
-                        })),
-                        ...data.expenses.map((exp: any) => ({
-                            type: 'expense',
-                            reference: exp.reference,
-                            date: exp.date,
-                            property_title: exp.property_title,
-                            party: exp.provider,
-                            amount: exp.total_amount
-                        }))
-                    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-                    // On stocke aussi le résumé quelque part ou on le calcule dans le footer
-                    setReportData(flattenedData)
+                    setExploitationData(data)
                 } else {
                     setReportData(data)
                 }
@@ -229,12 +209,25 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
             },
         ],
         exploitation: [
-            { header: "Type", accessor: (row: any) => row.type === 'invoice' ? <span className="text-green-600 font-medium">Revenu</span> : <span className="text-red-600 font-medium">Dépense</span> },
+            { header: "Référence", accessor: "invoice_number" },
+            { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
+            { header: "Bien Immobilier", accessor: "property_title" },
+            { header: "Statut", accessor: (row: any) => (
+                <span className={cn(
+                    "px-2 py-1 rounded text-xs font-medium uppercase",
+                    row.status === 'paid' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                )}>
+                    {row.status === 'paid' ? 'Payé' : 'Impayé'}
+                </span>
+            )},
+            { header: "Montant", accessor: (row: any) => <span className="text-green-600">{formatCurrency(row.total_amount)}</span> },
+        ],
+        exploitation_expenses: [
             { header: "Référence", accessor: "reference" },
             { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
             { header: "Bien Immobilier", accessor: "property_title" },
-            { header: "Tiers", accessor: "party" },
-            { header: "Montant", accessor: (row: any) => <span className={row.type === 'invoice' ? "text-green-600" : "text-red-600"}>{formatCurrency(row.amount)}</span> },
+            { header: "Fournisseur", accessor: "provider" },
+            { header: "Montant", accessor: (row: any) => <span className="text-red-600">{formatCurrency(row.total_amount)}</span> },
         ]
     }
 
@@ -276,11 +269,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                 colSpan = 5
                 break
             case 'exploitation': {
-                const rev = reportData.filter(r => r.type === 'invoice').reduce((acc, curr) => acc + Number(curr.amount), 0)
-                const exp = reportData.filter(r => r.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0)
-                total = rev - exp
-                colSpan = 5
-                break
+                return null
             }
             default:
                 return null
@@ -496,6 +485,84 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                     {loading ? (
                         <div className="flex h-64 items-center justify-center">
                             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                        </div>
+                    ) : activeReport === 'exploitation' && exploitationData ? (
+                        <div className="space-y-8">
+                            {/* 1. Tableau Chiffre d'Affaires */}
+                            <Card>
+                                <CardHeader className="bg-green-50/50">
+                                    <CardTitle className="text-base text-green-700">1. Chiffre d'Affaires (Factures)</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <DataTable
+                                        data={exploitationData.invoices}
+                                        columns={columns.exploitation}
+                                        searchKey="invoice_number"
+                                        showPagination={false}
+                                        footer={
+                                            <TableRow className="bg-green-50/30 font-bold">
+                                                <TableCell colSpan={4} className="text-right">Total CA</TableCell>
+                                                <TableCell className="text-green-600">{formatCurrency(exploitationData.summary.total_invoices)}</TableCell>
+                                            </TableRow>
+                                        }
+                                    />
+                                </CardContent>
+                            </Card>
+
+                            {/* 2. Tableau Dépenses */}
+                            <Card>
+                                <CardHeader className="bg-red-50/50">
+                                    <CardTitle className="text-base text-red-700">2. Dépenses</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <DataTable
+                                        data={exploitationData.expenses}
+                                        columns={columns.exploitation_expenses}
+                                        searchKey="reference"
+                                        showPagination={false}
+                                        footer={
+                                            <TableRow className="bg-red-50/30 font-bold">
+                                                <TableCell colSpan={4} className="text-right">Total Dépenses</TableCell>
+                                                <TableCell className="text-red-600">{formatCurrency(exploitationData.summary.total_expenses)}</TableCell>
+                                            </TableRow>
+                                        }
+                                    />
+                                </CardContent>
+                            </Card>
+
+                            {/* 3. Tableau Récapitulatif */}
+                            <Card>
+                                <CardHeader className="bg-purple-50/50">
+                                    <CardTitle className="text-base text-purple-700">3. Tableau Récapitulatif</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="p-4 rounded-lg bg-green-50 border border-green-100">
+                                            <p className="text-sm text-green-600 font-medium mb-1">Total Chiffre d'Affaires</p>
+                                            <p className="text-2xl font-bold text-green-700">{formatCurrency(exploitationData.summary.total_invoices)}</p>
+                                        </div>
+                                        <div className="p-4 rounded-lg bg-red-50 border border-red-100">
+                                            <p className="text-sm text-red-600 font-medium mb-1">Total Dépenses</p>
+                                            <p className="text-2xl font-bold text-red-700">{formatCurrency(exploitationData.summary.total_expenses)}</p>
+                                        </div>
+                                        <div className={cn(
+                                            "p-4 rounded-lg border",
+                                            exploitationData.summary.balance >= 0
+                                                ? "bg-purple-50 border-purple-100"
+                                                : "bg-amber-50 border-amber-100"
+                                        )}>
+                                            <p className={cn(
+                                                "text-sm font-medium mb-1",
+                                                exploitationData.summary.balance >= 0 ? "text-purple-600" : "text-amber-600"
+                                            )}>Solde d'Exploitation</p>
+                                            <p className={cn(
+                                                "text-2xl font-bold",
+                                                exploitationData.summary.balance >= 0 ? "text-purple-700" : "text-amber-700"
+                                            )}>{formatCurrency(exploitationData.summary.balance)}</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     ) : (
                         <DataTable
