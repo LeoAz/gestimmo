@@ -305,8 +305,8 @@ class ReportController extends Controller
                 'invoices.date',
                 'invoices.status',
                 'invoices.total_amount',
-                'properties.title as property_title',
-                'buildings.title as building_title'
+                'properties.title',
+                'buildings.title'
             );
 
         if ($propertyId && $propertyId !== 'all') {
@@ -321,11 +321,11 @@ class ReportController extends Controller
         }
 
         if ($startDate) {
-            $invoicesQuery->where('invoices.date', '>=', $startDate);
+            $invoicesQuery->whereDate('invoices.date', '>=', $startDate);
         }
 
         if ($endDate) {
-            $invoicesQuery->where('invoices.date', '<=', $endDate);
+            $invoicesQuery->whereDate('invoices.date', '<=', $endDate);
         }
 
         $invoices = $invoicesQuery->get();
@@ -354,11 +354,11 @@ class ReportController extends Controller
         }
 
         if ($startDate) {
-            $expensesQuery->where('expenses.date', '>=', $startDate);
+            $expensesQuery->whereDate('expenses.date', '>=', $startDate);
         }
 
         if ($endDate) {
-            $expensesQuery->where('expenses.date', '<=', $endDate);
+            $expensesQuery->whereDate('expenses.date', '<=', $endDate);
         }
 
         $expenses = $expensesQuery->get();

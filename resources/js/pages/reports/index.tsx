@@ -239,7 +239,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         revenue: "invoice_number",
         availability: "title",
         forecast: "tenant_name",
-        exploitation: "reference"
+        exploitation: "invoice_number"
     }
 
     const reports = [
