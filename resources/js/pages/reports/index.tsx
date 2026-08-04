@@ -211,23 +211,26 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         exploitation: [
             { header: "Référence", accessor: "invoice_number" },
             { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
-            { header: "Bien Immobilier", accessor: "property_title" },
+            { header: "Période", accessor: "period" },
+            { header: "Immeuble", accessor: (row: any) => row.building_title || "-" },
+            { header: "Appartement", accessor: "property_title" },
             { header: "Statut", accessor: (row: any) => (
                 <span className={cn(
-                    "px-2 py-1 rounded text-xs font-medium uppercase",
-                    row.status === 'paid' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    "font-medium uppercase text-[10px]",
+                    row.status === 'paid' ? "text-green-600" : "text-red-600"
                 )}>
                     {row.status === 'paid' ? 'Payé' : 'Impayé'}
                 </span>
             )},
-            { header: "Montant", accessor: (row: any) => <span className="text-green-600">{formatCurrency(row.total_amount)}</span> },
+            { header: "Montant", accessor: (row: any) => <span className="text-green-600 font-medium">{formatCurrency(row.total_amount)}</span> },
         ],
         exploitation_expenses: [
             { header: "Référence", accessor: "reference" },
             { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
-            { header: "Bien Immobilier", accessor: "property_title" },
+            { header: "Immeuble", accessor: (row: any) => row.building_title || "-" },
+            { header: "Appartement", accessor: "property_title" },
             { header: "Fournisseur", accessor: "provider" },
-            { header: "Montant", accessor: (row: any) => <span className="text-red-600">{formatCurrency(row.total_amount)}</span> },
+            { header: "Montant", accessor: (row: any) => <span className="text-red-600 font-medium">{formatCurrency(row.total_amount)}</span> },
         ]
     }
 
@@ -487,82 +490,68 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                         </div>
                     ) : activeReport === 'exploitation' && exploitationData ? (
-                        <div className="space-y-8">
+                        <div className="space-y-16 py-8">
                             {/* 1. Tableau Chiffre d'Affaires */}
-                            <Card>
-                                <CardHeader className="bg-green-50/50">
-                                    <CardTitle className="text-base text-green-700">1. Chiffre d'Affaires (Factures)</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
+                            <div className="space-y-6">
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 px-1 border-l-2 border-gray-900 ml-1 pl-4">1. Chiffre d'Affaires</h3>
+                                <div className="rounded-none border-y border-gray-100 bg-white overflow-hidden">
                                     <DataTable
                                         data={exploitationData.invoices || []}
                                         columns={columns.exploitation}
                                         searchKey="invoice_number"
                                         showPagination={false}
                                         footer={
-                                            <TableRow className="bg-green-50/30 font-bold">
-                                                <TableCell colSpan={4} className="text-right">Total CA</TableCell>
-                                                <TableCell className="text-green-600">{formatCurrency(exploitationData.summary?.total_invoices || 0)}</TableCell>
+                                            <TableRow className="border-t border-gray-100 font-bold bg-white">
+                                                <TableCell colSpan={6} className="text-right py-6 text-[10px] uppercase tracking-widest text-gray-400 font-medium">Total Chiffre d'Affaires</TableCell>
+                                                <TableCell className="text-green-600 py-6 font-bold text-base">{formatCurrency(exploitationData.summary?.total_invoices || 0)}</TableCell>
                                             </TableRow>
                                         }
                                     />
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
                             {/* 2. Tableau Dépenses */}
-                            <Card>
-                                <CardHeader className="bg-red-50/50">
-                                    <CardTitle className="text-base text-red-700">2. Dépenses</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
+                            <div className="space-y-6">
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 px-1 border-l-2 border-gray-900 ml-1 pl-4">2. Dépenses</h3>
+                                <div className="rounded-none border-y border-gray-100 bg-white overflow-hidden">
                                     <DataTable
                                         data={exploitationData.expenses || []}
                                         columns={columns.exploitation_expenses}
                                         searchKey="reference"
                                         showPagination={false}
                                         footer={
-                                            <TableRow className="bg-red-50/30 font-bold">
-                                                <TableCell colSpan={4} className="text-right">Total Dépenses</TableCell>
-                                                <TableCell className="text-red-600">{formatCurrency(exploitationData.summary?.total_expenses || 0)}</TableCell>
+                                            <TableRow className="border-t border-gray-100 font-bold bg-white">
+                                                <TableCell colSpan={5} className="text-right py-6 text-[10px] uppercase tracking-widest text-gray-400 font-medium">Total Dépenses</TableCell>
+                                                <TableCell className="text-red-600 py-6 font-bold text-base">{formatCurrency(exploitationData.summary?.total_expenses || 0)}</TableCell>
                                             </TableRow>
                                         }
                                     />
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
                             {/* 3. Tableau Récapitulatif */}
-                            <Card>
-                                <CardHeader className="bg-purple-50/50">
-                                    <CardTitle className="text-base text-purple-700">3. Tableau Récapitulatif</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="p-4 rounded-lg bg-green-50 border border-green-100">
-                                            <p className="text-sm text-green-600 font-medium mb-1">Total Chiffre d'Affaires</p>
-                                            <p className="text-2xl font-bold text-green-700">{formatCurrency(exploitationData.summary?.total_invoices || 0)}</p>
+                            <div className="space-y-6">
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 px-1 border-l-2 border-gray-900 ml-1 pl-4">3. Bilan d'Exploitation</h3>
+                                <div className="border border-gray-100 bg-slate-50/30">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                                        <div className="p-10">
+                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.2em] mb-4 text-center md:text-left">Total Revenus</p>
+                                            <p className="text-3xl font-light text-green-600 text-center md:text-left tracking-tighter">{formatCurrency(exploitationData.summary?.total_invoices || 0)}</p>
                                         </div>
-                                        <div className="p-4 rounded-lg bg-red-50 border border-red-100">
-                                            <p className="text-sm text-red-600 font-medium mb-1">Total Dépenses</p>
-                                            <p className="text-2xl font-bold text-red-700">{formatCurrency(exploitationData.summary?.total_expenses || 0)}</p>
+                                        <div className="p-10">
+                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.2em] mb-4 text-center md:text-left">Total Dépenses</p>
+                                            <p className="text-3xl font-light text-red-600 text-center md:text-left tracking-tighter">{formatCurrency(exploitationData.summary?.total_expenses || 0)}</p>
                                         </div>
-                                        <div className={cn(
-                                            "p-4 rounded-lg border",
-                                            (exploitationData.summary?.balance || 0) >= 0
-                                                ? "bg-purple-50 border-purple-100"
-                                                : "bg-amber-50 border-amber-100"
-                                        )}>
+                                        <div className="p-10 bg-white">
+                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.2em] mb-4 text-center md:text-left">Solde d'Exploitation</p>
                                             <p className={cn(
-                                                "text-sm font-medium mb-1",
-                                                (exploitationData.summary?.balance || 0) >= 0 ? "text-purple-600" : "text-amber-600"
-                                            )}>Solde d'Exploitation</p>
-                                            <p className={cn(
-                                                "text-2xl font-bold",
-                                                (exploitationData.summary?.balance || 0) >= 0 ? "text-purple-700" : "text-amber-700"
+                                                "text-3xl font-bold text-center md:text-left tracking-tighter",
+                                                (exploitationData.summary?.balance || 0) >= 0 ? "text-slate-900" : "text-amber-600"
                                             )}>{formatCurrency(exploitationData.summary?.balance || 0)}</p>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <DataTable

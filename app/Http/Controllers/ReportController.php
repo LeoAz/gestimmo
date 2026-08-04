@@ -288,7 +288,19 @@ class ReportController extends Controller
         $invoicesQuery = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
             ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
+            ->leftJoin('invoice_items', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->select(
+                'invoices.id',
+                'invoices.invoice_number',
+                'invoices.date',
+                'invoices.status',
+                'invoices.total_amount',
+                'properties.title as property_title',
+                'buildings.title as building_title',
+                \DB::raw('GROUP_CONCAT(DISTINCT invoice_items.period SEPARATOR ", ") as period')
+            )
+            ->groupBy(
+                'invoices.id',
                 'invoices.invoice_number',
                 'invoices.date',
                 'invoices.status',
