@@ -7,6 +7,7 @@ use App\Exports\ForecastExport;
 use App\Exports\LatePaymentsExport;
 use App\Exports\RevenueExport;
 use App\Models\Invoice;
+use App\Models\Expense;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
@@ -275,6 +276,14 @@ class ReportController extends Controller
         $startDate = $request->start_date;
         $endDate = $request->end_date;
 
+        // Validation - dates facultatives si property_id est fourni
+        if (!$propertyId || $propertyId === 'all') {
+            $request->validate([
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+            ]);
+        }
+
         // 1. Chiffre d'Affaires (Factures de location)
         $invoicesQuery = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
             ->join('properties', 'rentals.property_id', '=', 'properties.id')
@@ -296,7 +305,7 @@ class ReportController extends Controller
         }
 
         if ($request->category_id && $request->category_id !== 'all') {
-            $invoicesQuery->where('properties.category_id', $request->category_id);
+            $invoicesQuery->where('properties.property_category_id', $request->category_id);
         }
 
         if ($startDate) {
@@ -329,7 +338,7 @@ class ReportController extends Controller
         }
 
         if ($request->category_id && $request->category_id !== 'all') {
-            $expensesQuery->where('properties.category_id', $request->category_id);
+            $expensesQuery->where('properties.property_category_id', $request->category_id);
         }
 
         if ($startDate) {
@@ -341,11 +350,6 @@ class ReportController extends Controller
         }
 
         $expenses = $expensesQuery->get();
-
-        if ($request->category_id && $request->category_id !== 'all') {
-            $invoicesQuery->where('properties.category_id', $request->category_id);
-        }
-        $invoices = $invoicesQuery->get();
 
         $totalInvoices = $invoices->sum('total_amount');
         $totalExpenses = $expenses->sum('total_amount');
@@ -362,7 +366,6 @@ class ReportController extends Controller
         ];
 
         if ($request->export === 'excel') {
-            // Nous devrons créer cette classe
             return Excel::download(new \App\Exports\ExploitationExport($data), 'rapport-exploitation.xlsx');
         }
 

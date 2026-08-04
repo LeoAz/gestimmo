@@ -495,14 +495,14 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <DataTable
-                                        data={exploitationData.invoices}
+                                        data={exploitationData.invoices || []}
                                         columns={columns.exploitation}
                                         searchKey="invoice_number"
                                         showPagination={false}
                                         footer={
                                             <TableRow className="bg-green-50/30 font-bold">
                                                 <TableCell colSpan={4} className="text-right">Total CA</TableCell>
-                                                <TableCell className="text-green-600">{formatCurrency(exploitationData.summary.total_invoices)}</TableCell>
+                                                <TableCell className="text-green-600">{formatCurrency(exploitationData.summary?.total_invoices || 0)}</TableCell>
                                             </TableRow>
                                         }
                                     />
@@ -516,14 +516,14 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <DataTable
-                                        data={exploitationData.expenses}
+                                        data={exploitationData.expenses || []}
                                         columns={columns.exploitation_expenses}
                                         searchKey="reference"
                                         showPagination={false}
                                         footer={
                                             <TableRow className="bg-red-50/30 font-bold">
                                                 <TableCell colSpan={4} className="text-right">Total Dépenses</TableCell>
-                                                <TableCell className="text-red-600">{formatCurrency(exploitationData.summary.total_expenses)}</TableCell>
+                                                <TableCell className="text-red-600">{formatCurrency(exploitationData.summary?.total_expenses || 0)}</TableCell>
                                             </TableRow>
                                         }
                                     />
@@ -539,26 +539,26 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div className="p-4 rounded-lg bg-green-50 border border-green-100">
                                             <p className="text-sm text-green-600 font-medium mb-1">Total Chiffre d'Affaires</p>
-                                            <p className="text-2xl font-bold text-green-700">{formatCurrency(exploitationData.summary.total_invoices)}</p>
+                                            <p className="text-2xl font-bold text-green-700">{formatCurrency(exploitationData.summary?.total_invoices || 0)}</p>
                                         </div>
                                         <div className="p-4 rounded-lg bg-red-50 border border-red-100">
                                             <p className="text-sm text-red-600 font-medium mb-1">Total Dépenses</p>
-                                            <p className="text-2xl font-bold text-red-700">{formatCurrency(exploitationData.summary.total_expenses)}</p>
+                                            <p className="text-2xl font-bold text-red-700">{formatCurrency(exploitationData.summary?.total_expenses || 0)}</p>
                                         </div>
                                         <div className={cn(
                                             "p-4 rounded-lg border",
-                                            exploitationData.summary.balance >= 0
+                                            (exploitationData.summary?.balance || 0) >= 0
                                                 ? "bg-purple-50 border-purple-100"
                                                 : "bg-amber-50 border-amber-100"
                                         )}>
                                             <p className={cn(
                                                 "text-sm font-medium mb-1",
-                                                exploitationData.summary.balance >= 0 ? "text-purple-600" : "text-amber-600"
+                                                (exploitationData.summary?.balance || 0) >= 0 ? "text-purple-600" : "text-amber-600"
                                             )}>Solde d'Exploitation</p>
                                             <p className={cn(
                                                 "text-2xl font-bold",
-                                                exploitationData.summary.balance >= 0 ? "text-purple-700" : "text-amber-700"
-                                            )}>{formatCurrency(exploitationData.summary.balance)}</p>
+                                                (exploitationData.summary?.balance || 0) >= 0 ? "text-purple-700" : "text-amber-700"
+                                            )}>{formatCurrency(exploitationData.summary?.balance || 0)}</p>
                                         </div>
                                     </div>
                                 </CardContent>
