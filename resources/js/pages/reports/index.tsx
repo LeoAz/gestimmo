@@ -234,7 +234,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                     : row.property_title
             },
             { header: "Fournisseur", accessor: "provider" },
-            { header: "Description", accessor: (row: any) => row.description || row.notes || "-" },
+            { header: "Description", accessor: "description" },
             { header: "Montant", accessor: (row: any) => <span className="text-red-600 font-medium">{formatCurrency(row.total_amount)}</span> },
         ]
     }

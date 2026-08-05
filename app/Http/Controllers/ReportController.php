@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Exports\AvailabilityExport;
+use App\Exports\ExploitationExport;
 use App\Exports\ForecastExport;
 use App\Exports\LatePaymentsExport;
 use App\Exports\RevenueExport;
-use App\Models\Invoice;
 use App\Models\Expense;
+use App\Models\Invoice;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
@@ -278,7 +279,7 @@ class ReportController extends Controller
             $endDate = $request->end_date;
 
             // Validation - dates facultatives si property_id est fourni
-            if (!$propertyId || $propertyId === 'all') {
+            if (! $propertyId || $propertyId === 'all') {
                 $request->validate([
                     'start_date' => 'required|date',
                     'end_date' => 'required|date|after_or_equal:start_date',
@@ -329,7 +330,7 @@ class ReportController extends Controller
                     'expenses.date',
                     'expenses.total_amount',
                     'expenses.provider',
-                    'expenses.notes as description',
+                    \DB::raw('(SELECT GROUP_CONCAT(description SEPARATOR ", ") FROM expense_items WHERE expense_id = expenses.id) as description'),
                     'properties.title as property_title',
                     'buildings.title as building_title'
                 );
@@ -366,11 +367,11 @@ class ReportController extends Controller
                     'total_invoices' => $totalInvoices,
                     'total_expenses' => $totalExpenses,
                     'balance' => $balance,
-                ]
+                ],
             ];
 
             if ($request->export === 'excel') {
-                return Excel::download(new \App\Exports\ExploitationExport($data), 'rapport-exploitation.xlsx');
+                return Excel::download(new ExploitationExport($data), 'rapport-exploitation.xlsx');
             }
 
             if ($request->export === 'pdf') {
@@ -392,10 +393,11 @@ class ReportController extends Controller
 
             return response()->json($data);
         } catch (\Exception $e) {
-            \Log::error('Erreur Rapport Exploitation: ' . $e->getMessage(), [
+            \Log::error('Erreur Rapport Exploitation: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
+
             return response()->json(['error' => 'Une erreur est survenue lors de la génération du rapport.'], 500);
         }
     }
