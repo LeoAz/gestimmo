@@ -338,6 +338,7 @@ class ReportController extends Controller
                 'expenses.date',
                 'expenses.total_amount',
                 'expenses.provider',
+                'expenses.description',
                 'properties.title as property_title',
                 'buildings.title as building_title'
             );

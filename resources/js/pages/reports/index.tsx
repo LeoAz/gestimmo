@@ -227,9 +227,14 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         exploitation_expenses: [
             { header: "Référence", accessor: "reference" },
             { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
-            { header: "Immeuble", accessor: (row: any) => row.building_title || "-" },
-            { header: "Appartement", accessor: "property_title" },
+            {
+                header: "Bien immo",
+                accessor: (row: any) => row.building_title
+                    ? `${row.building_title} / ${row.property_title}`
+                    : row.property_title
+            },
             { header: "Fournisseur", accessor: "provider" },
+            { header: "Description", accessor: "description" },
             { header: "Montant", accessor: (row: any) => <span className="text-red-600 font-medium">{formatCurrency(row.total_amount)}</span> },
         ]
     }
