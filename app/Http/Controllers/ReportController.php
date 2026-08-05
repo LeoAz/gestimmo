@@ -272,123 +272,131 @@ class ReportController extends Controller
 
     public function exploitation(Request $request)
     {
-        $propertyId = $request->property_id;
-        $startDate = $request->start_date;
-        $endDate = $request->end_date;
+        try {
+            $propertyId = $request->property_id;
+            $startDate = $request->start_date;
+            $endDate = $request->end_date;
 
-        // Validation - dates facultatives si property_id est fourni
-        if (!$propertyId || $propertyId === 'all') {
-            $request->validate([
-                'start_date' => 'required|date',
-                'end_date' => 'required|date|after_or_equal:start_date',
-            ]);
-        }
-
-        // 1. Chiffre d'Affaires (Factures de location)
-        $invoicesQuery = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
-            ->join('properties', 'rentals.property_id', '=', 'properties.id')
-            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
-            ->select(
-                'invoices.id',
-                'invoices.invoice_number',
-                'invoices.date',
-                'invoices.status',
-                'invoices.total_amount',
-                'properties.title as property_title',
-                'buildings.title as building_title',
-                \DB::raw('(SELECT GROUP_CONCAT(DISTINCT period SEPARATOR ", ") FROM invoice_items WHERE invoice_id = invoices.id) as period')
-            );
-
-        if ($propertyId && $propertyId !== 'all') {
-            $invoicesQuery->where(function ($q) use ($propertyId) {
-                $q->where('rentals.property_id', $propertyId)
-                    ->orWhere('properties.parent_id', $propertyId);
-            });
-        }
-
-        if ($request->filled('category_id') && $request->category_id !== 'all') {
-            $invoicesQuery->where('properties.property_category_id', $request->category_id);
-        }
-
-        if ($startDate) {
-            $invoicesQuery->whereDate('invoices.date', '>=', $startDate);
-        }
-
-        if ($endDate) {
-            $invoicesQuery->whereDate('invoices.date', '<=', $endDate);
-        }
-
-        $invoices = $invoicesQuery->get();
-
-        // 2. Dépenses
-        $expensesQuery = Expense::join('properties', 'expenses.property_id', '=', 'properties.id')
-            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
-            ->select(
-                'expenses.reference',
-                'expenses.date',
-                'expenses.total_amount',
-                'expenses.provider',
-                'expenses.description',
-                'properties.title as property_title',
-                'buildings.title as building_title'
-            );
-
-        if ($propertyId && $propertyId !== 'all') {
-            $expensesQuery->where(function ($q) use ($propertyId) {
-                $q->where('expenses.property_id', $propertyId)
-                    ->orWhere('properties.parent_id', $propertyId);
-            });
-        }
-
-        if ($request->filled('category_id') && $request->category_id !== 'all') {
-            $expensesQuery->where('properties.property_category_id', $request->category_id);
-        }
-
-        if ($startDate) {
-            $expensesQuery->whereDate('expenses.date', '>=', $startDate);
-        }
-
-        if ($endDate) {
-            $expensesQuery->whereDate('expenses.date', '<=', $endDate);
-        }
-
-        $expenses = $expensesQuery->get();
-
-        $totalInvoices = $invoices->sum('total_amount');
-        $totalExpenses = $expenses->sum('total_amount');
-        $balance = $totalInvoices - $totalExpenses;
-
-        $data = [
-            'invoices' => $invoices,
-            'expenses' => $expenses,
-            'summary' => [
-                'total_invoices' => $totalInvoices,
-                'total_expenses' => $totalExpenses,
-                'balance' => $balance,
-            ]
-        ];
-
-        if ($request->export === 'excel') {
-            return Excel::download(new \App\Exports\ExploitationExport($data), 'rapport-exploitation.xlsx');
-        }
-
-        if ($request->export === 'pdf') {
-            $organization = Organization::first();
-            $property = null;
-            if ($propertyId && $propertyId !== 'all') {
-                $property = Property::find($propertyId);
+            // Validation - dates facultatives si property_id est fourni
+            if (!$propertyId || $propertyId === 'all') {
+                $request->validate([
+                    'start_date' => 'required|date',
+                    'end_date' => 'required|date|after_or_equal:start_date',
+                ]);
             }
-            $pdf = Pdf::loadView('reports.pdf.exploitation', [
-                'data' => $data,
-                'filters' => $request->all(),
-                'title' => 'Rapport d\'Exploitation Détaillé',
-                'organization' => $organization,
-                'property' => $property,
+
+            // 1. Chiffre d'Affaires (Factures de location)
+            $invoicesQuery = Invoice::join('rentals', 'invoices.rental_id', '=', 'rentals.id')
+                ->join('properties', 'rentals.property_id', '=', 'properties.id')
+                ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
+                ->select(
+                    'invoices.id',
+                    'invoices.invoice_number',
+                    'invoices.date',
+                    'invoices.status',
+                    'invoices.total_amount',
+                    'properties.title as property_title',
+                    'buildings.title as building_title',
+                    DB::raw('(SELECT GROUP_CONCAT(DISTINCT period SEPARATOR ", ") FROM invoice_items WHERE invoice_id = invoices.id) as period')
+                );
+
+            if ($propertyId && $propertyId !== 'all') {
+                $invoicesQuery->where(function ($q) use ($propertyId) {
+                    $q->where('rentals.property_id', $propertyId)
+                        ->orWhere('properties.parent_id', $propertyId);
+                });
+            }
+
+            if ($request->filled('category_id') && $request->category_id !== 'all') {
+                $invoicesQuery->where('properties.property_category_id', $request->category_id);
+            }
+
+            if ($startDate) {
+                $invoicesQuery->whereDate('invoices.date', '>=', $startDate);
+            }
+
+            if ($endDate) {
+                $invoicesQuery->whereDate('invoices.date', '<=', $endDate);
+            }
+
+            $invoices = $invoicesQuery->get();
+
+            // 2. Dépenses
+            $expensesQuery = Expense::join('properties', 'expenses.property_id', '=', 'properties.id')
+                ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
+                ->select(
+                    'expenses.reference',
+                    'expenses.date',
+                    'expenses.total_amount',
+                    'expenses.provider',
+                    'expenses.notes as description',
+                    'properties.title as property_title',
+                    'buildings.title as building_title'
+                );
+
+            if ($propertyId && $propertyId !== 'all') {
+                $expensesQuery->where(function ($q) use ($propertyId) {
+                    $q->where('expenses.property_id', $propertyId)
+                        ->orWhere('properties.parent_id', $propertyId);
+                });
+            }
+
+            if ($request->filled('category_id') && $request->category_id !== 'all') {
+                $expensesQuery->where('properties.property_category_id', $request->category_id);
+            }
+
+            if ($startDate) {
+                $expensesQuery->whereDate('expenses.date', '>=', $startDate);
+            }
+
+            if ($endDate) {
+                $expensesQuery->whereDate('expenses.date', '<=', $endDate);
+            }
+
+            $expenses = $expensesQuery->get();
+
+            $totalInvoices = $invoices->sum('total_amount');
+            $totalExpenses = $expenses->sum('total_amount');
+            $balance = $totalInvoices - $totalExpenses;
+
+            $data = [
+                'invoices' => $invoices,
+                'expenses' => $expenses,
+                'summary' => [
+                    'total_invoices' => $totalInvoices,
+                    'total_expenses' => $totalExpenses,
+                    'balance' => $balance,
+                ]
+            ];
+
+            if ($request->export === 'excel') {
+                return Excel::download(new \App\Exports\ExploitationExport($data), 'rapport-exploitation.xlsx');
+            }
+
+            if ($request->export === 'pdf') {
+                $organization = Organization::first();
+                $property = null;
+                if ($propertyId && $propertyId !== 'all') {
+                    $property = Property::find($propertyId);
+                }
+                $pdf = Pdf::loadView('reports.pdf.exploitation', [
+                    'data' => $data,
+                    'filters' => $request->all(),
+                    'title' => 'Rapport d\'Exploitation Détaillé',
+                    'organization' => $organization,
+                    'property' => $property,
+                ]);
+
+                return $pdf->download('rapport-exploitation.pdf');
+            }
+
+            return response()->json($data);
+        } catch (\Exception $e) {
+            \Log::error('Erreur Rapport Exploitation: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
             ]);
-
-            return $pdf->download('rapport-exploitation.pdf');
+            return response()->json(['error' => 'Une erreur est survenue lors de la génération du rapport.'], 500);
         }
-
-        return response()->json($data);
     }
 }
