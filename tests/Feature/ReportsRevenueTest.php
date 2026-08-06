@@ -79,8 +79,37 @@ it('returns billing period in revenue report JSON', function () {
         'updated_at' => now(),
     ]);
 
+    $invoiceNumber = Str::uuid()->toString();
+    $invoiceId = DB::table('invoices')->insertGetId([
+        'rental_id' => $rentalId,
+        'invoice_number' => $invoiceNumber,
+        'date' => now()->startOfMonth(),
+        'due_date' => now()->endOfMonth(),
+        'type' => 'Loyer',
+        'amount_ht' => 100000,
+        'tax_amount' => 0,
+        'total_amount' => 100000,
+        'status' => 'paid',
+        'notes' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::table('invoice_items')->insert([
+        'invoice_id' => $invoiceId,
+        'designation' => 'Loyer mensuel',
+        'period' => 'septembre 2025',
+        'months_count' => 1,
+        'unit_price' => 100000,
+        'quantity' => 1,
+        'total' => 100000,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
     DB::table('payments')->insert([
         'rental_id' => $rentalId,
+        'invoice_id' => $invoiceId,
         'amount' => 100000,
         'months_count' => 1,
         'payment_date' => now()->startOfMonth()->addDays(5),
@@ -89,7 +118,7 @@ it('returns billing period in revenue report JSON', function () {
         'period_end' => now()->endOfMonth(),
         'type' => 'rent',
         'status' => 'paid',
-        'invoice_number' => Str::uuid()->toString(),
+        'invoice_number' => $invoiceNumber,
         'is_advance_payment' => false,
         'notes' => null,
         'created_at' => now(),

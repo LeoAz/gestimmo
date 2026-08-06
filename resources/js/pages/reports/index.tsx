@@ -24,6 +24,13 @@ import {
 import { TableCell, TableRow } from "@/components/ui/table"
 import AppLayout from "@/layouts/app-layout"
 import { cn } from "@/lib/utils"
+import {
+    availability,
+    exploitation,
+    latePayments,
+    rentFollowUp,
+    revenue,
+} from "@/routes/reports"
 
 interface Property {
     id: number
@@ -47,7 +54,15 @@ interface Props {
     }
 }
 
-type ReportType = 'late_payments' | 'revenue' | 'availability' | 'forecast' | 'exploitation'
+type ReportType = 'late_payments' | 'revenue' | 'availability' | 'exploitation' | 'rent_follow_up'
+
+const reportEndpoints = {
+    late_payments: latePayments,
+    revenue,
+    availability,
+    exploitation,
+    rent_follow_up: rentFollowUp,
+}
 
 export default function ReportsIndex({ properties, categories, filters }: Props) {
     const [activeReport, setActiveReport] = React.useState<ReportType>('late_payments')
@@ -83,7 +98,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                 params.append('end_date', endDate)
             }
 
-            const endpoint = `/reports/${activeReport.replace('_', '-')}`
+            const endpoint = reportEndpoints[activeReport].url()
             const response = await fetch(`${endpoint}?${params.toString()}`, { signal })
             const data = await response.json()
 
@@ -140,7 +155,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
 
         params.append('export', type)
 
-        const endpoint = `/reports/${activeReport.replace('_', '-')}`
+        const endpoint = reportEndpoints[activeReport].url()
 
         window.open(`${endpoint}?${params.toString()}`, '_blank')
     }
@@ -190,24 +205,6 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
             },
             { header: "Prix", accessor: (row: any) => formatCurrency(row.price), sortable: true, sortKey: "price" },
         ],
-        forecast: [
-            { header: "Immeuble", accessor: (row: any) => row.building_title || "-", sortable: true, sortKey: "building_title" },
-            { header: "Bien Immobilier", accessor: "property_title", sortable: true, sortKey: "property_title" },
-            { header: "Locataire", accessor: "tenant_name", sortable: true, sortKey: "tenant_name" },
-            { header: "Période", accessor: "period", sortable: true, sortKey: "period" },
-            { header: "Prévu", accessor: (row: any) => formatCurrency(row.amount_expected), sortable: true, sortKey: "amount_expected" },
-            { header: "Recouvré", accessor: (row: any) => formatCurrency(row.amount_collected), sortable: true, sortKey: "amount_collected" },
-            {
-                header: "Reste",
-                accessor: (row: any) => (
-                    <span className={row.amount_expected - row.amount_collected > 0 ? 'text-red-600 font-bold' : 'text-green-600'}>
-                        {formatCurrency(row.amount_expected - row.amount_collected)}
-                    </span>
-                ),
-                sortable: true,
-                sortKey: "amount_expected"
-            },
-        ],
         exploitation: [
             { header: "Référence", accessor: "invoice_number" },
             { header: "Date", accessor: (row: any) => new Date(row.date).toLocaleDateString() },
@@ -223,6 +220,14 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                 </span>
             )},
             { header: "Montant", accessor: (row: any) => <span className="text-green-600 font-medium">{formatCurrency(row.total_amount)}</span> },
+        ],
+        rent_follow_up: [
+            {
+                header: "Bien Immobilier",
+                accessor: "property_title",
+                className: "sticky left-0 bg-white z-10 min-w-[200px]"
+            },
+            { header: "Locataire", accessor: "tenant_name", className: "sticky left-[200px] bg-white z-10 border-r min-w-[150px]" },
         ],
         exploitation_expenses: [
             { header: "Référence", accessor: "reference" },
@@ -243,17 +248,61 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         late_payments: "invoice_number",
         revenue: "invoice_number",
         availability: "title",
-        forecast: "tenant_name",
-        exploitation: "invoice_number"
+        exploitation: "invoice_number",
+        rent_follow_up: "tenant_name"
     }
 
     const reports = [
+        { id: 'rent_follow_up', title: 'Suivi des Loyers', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
         { id: 'late_payments', title: 'Retards de Paiement', icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50' },
         { id: 'revenue', title: 'Chiffre d\'Affaire', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
         { id: 'availability', title: 'Disponibilité des Biens', icon: Home, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { id: 'forecast', title: 'Prévisions & Recouvrement', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
         { id: 'exploitation', title: 'Exploitation Détaillé', icon: Calculator, color: 'text-purple-600', bg: 'bg-purple-50' },
     ]
+
+    const getRentFollowUpColumns = () => {
+        if (activeReport !== 'rent_follow_up' || reportData.length === 0) {
+            return columns.rent_follow_up
+        }
+
+        // Get all unique month keys across all rows
+        const allMonths = new Set<string>()
+        reportData.forEach((row: any) => {
+            if (row.months) {
+                Object.keys(row.months).forEach(m => allMonths.add(m))
+            }
+        })
+
+        const months = Array.from(allMonths).sort()
+        const monthColumns = months.map((month) => ({
+            header: format(new Date(month + "-01"), "MMM yy"),
+            className: "text-center",
+            accessor: (row: any) => {
+                const data = row.months ? row.months[month] : null
+
+                if (!data) {
+                    return (
+                        <div className="text-[10px] font-medium p-1 rounded text-center min-w-[100px] bg-gray-100 text-gray-400">
+                            -
+                        </div>
+                    )
+                }
+
+                return (
+                    <div className={cn(
+                        "min-w-[100px] rounded p-1 text-center text-xs font-medium",
+                        data.status === 'paid' && "border border-emerald-200 bg-emerald-100 text-emerald-800",
+                        data.status === 'unpaid' && "border border-rose-200 bg-rose-100 text-rose-800",
+                        data.status === 'not_billed' && "bg-muted text-muted-foreground",
+                    )}>
+                        {data.label}
+                    </div>
+                )
+            }
+        }))
+
+        return [...columns.rent_follow_up, ...monthColumns]
+    }
 
     const getFooter = () => {
         if (loading || reportData.length === 0) {
@@ -264,16 +313,36 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         let colSpan = 0
 
         switch (activeReport) {
+            case 'rent_follow_up': {
+                const allMonths = new Set<string>()
+                reportData.forEach((row: any) => {
+                    if (row.months) {
+                        Object.keys(row.months).forEach(m => allMonths.add(m))
+                    }
+                })
+                const months = Array.from(allMonths).sort()
+
+                return (
+                    <TableRow className="bg-muted/50 font-bold">
+                        <TableCell colSpan={2} className="text-right">Total Mensuel</TableCell>
+                        {months.map((month) => {
+                            const monthlyTotal = reportData.reduce((acc, curr) => acc + Number(curr.months?.[month]?.amount || 0), 0)
+
+                            return (
+                                <TableCell key={month} className="text-center text-xs">
+                                    {formatCurrency(monthlyTotal).replace(',00', '')}
+                                </TableCell>
+                            )
+                        })}
+                    </TableRow>
+                )
+            }
             case 'late_payments':
                 total = reportData.reduce((acc, curr) => acc + Number(curr.amount_due), 0)
                 colSpan = 4
                 break
             case 'revenue':
                 total = reportData.reduce((acc, curr) => acc + Number(curr.amount), 0)
-                colSpan = 5
-                break
-            case 'forecast':
-                total = reportData.reduce((acc, curr) => acc + (Number(curr.amount_expected) - Number(curr.amount_collected)), 0)
                 colSpan = 5
                 break
             case 'exploitation': {
@@ -286,7 +355,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
         return (
             <TableRow className="bg-muted/50 font-bold">
                 <TableCell colSpan={colSpan} className="text-right">Total</TableCell>
-                <TableCell className={activeReport === 'late_payments' || activeReport === 'forecast' ? "text-red-600" : ""}>
+                <TableCell className={activeReport === 'late_payments' ? "text-red-600" : ""}>
                     {formatCurrency(total)}
                 </TableCell>
             </TableRow>
@@ -470,7 +539,10 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                                 <label className="text-sm font-medium">Date de début</label>
                                 <DatePicker
                                     date={startDate ? new Date(startDate) : undefined}
-                                    onChange={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                    onChange={(date) => {
+                                        const newDate = date ? format(date, "yyyy-MM-dd") : ""
+                                        setStartDate(newDate)
+                                    }}
                                     placeholder="Choisir une date de début"
                                 />
                             </div>
@@ -478,7 +550,10 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                                 <label className="text-sm font-medium">Date de fin</label>
                                 <DatePicker
                                     date={endDate ? new Date(endDate) : undefined}
-                                    onChange={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                    onChange={(date) => {
+                                        const newDate = date ? format(date, "yyyy-MM-dd") : ""
+                                        setEndDate(newDate)
+                                    }}
                                     placeholder="Choisir une date de fin"
                                 />
                             </div>
@@ -495,7 +570,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                         </div>
                     ) : activeReport === 'exploitation' && exploitationData ? (
-                        <div className="space-y-16 py-8">
+                        <div className="space-y-16 py-8" key={`report-exploitation-${startDate}-${endDate}-${propertyId}`}>
                             {/* 1. Tableau Chiffre d'Affaires */}
                             <div className="space-y-6">
                                 <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 px-1 border-l-2 border-gray-900 ml-1 pl-4">1. Chiffre d'Affaires</h3>
@@ -560,8 +635,9 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                         </div>
                     ) : (
                         <DataTable
+                            key={`report-${activeReport}-${startDate}-${endDate}-${propertyId}-${reportData.length}`}
                             data={reportData}
-                            columns={columns[activeReport]}
+                            columns={activeReport === 'rent_follow_up' ? getRentFollowUpColumns() : columns[activeReport]}
                             searchKey={searchKeys[activeReport] as any}
                             showPagination={false}
                             footer={getFooter()}

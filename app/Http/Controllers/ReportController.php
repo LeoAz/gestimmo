@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\AvailabilityExport;
 use App\Exports\ExploitationExport;
-use App\Exports\ForecastExport;
 use App\Exports\LatePaymentsExport;
+use App\Exports\RentFollowUpExport;
 use App\Exports\RevenueExport;
 use App\Models\Expense;
 use App\Models\Invoice;
@@ -15,7 +15,10 @@ use App\Models\Property;
 use App\Models\PropertyCategory;
 use App\Models\Rental;
 use Barryvdh\DomPDF\Facade\Pdf;
+use DateTimeInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
@@ -201,76 +204,6 @@ class ReportController extends Controller
         return response()->json($data);
     }
 
-    public function forecast(Request $request)
-    {
-        // Simples prévisions basées sur les locations actives
-        $query = Rental::where('rentals.status', 'active')
-            ->join('properties', 'rentals.property_id', '=', 'properties.id')
-            ->leftJoin('properties as buildings', 'properties.parent_id', '=', 'buildings.id')
-            ->join('tenants', 'rentals.tenant_id', '=', 'tenants.id')
-            ->select(
-                'buildings.title as building_title',
-                'properties.title as property_title',
-                DB::raw(config('database.default') === 'sqlite'
-                    ? "tenants.first_name || ' ' || tenants.last_name as tenant_name"
-                    : "CONCAT(tenants.first_name, ' ', tenants.last_name) as tenant_name"
-                ),
-                DB::raw(config('database.default') === 'sqlite'
-                    ? "strftime('%m/%Y', 'now') as period"
-                    : "DATE_FORMAT(NOW(), '%m/%Y') as period"
-                ),
-                'rentals.rent_amount as amount_expected'
-            );
-
-        if ($request->filled('property_id') && $request->property_id !== 'all') {
-            $query->where(function ($q) use ($request) {
-                $q->where('rentals.property_id', $request->property_id)
-                    ->orWhere('properties.parent_id', $request->property_id);
-            });
-        }
-
-        if ($request->filled('category_id') && $request->category_id !== 'all') {
-            $query->where('properties.property_category_id', $request->category_id);
-        }
-
-        $rentals = $query->get();
-
-        // Calculer les montants déjà recouvrés pour le mois en cours
-        $data = $rentals->map(function ($rental) {
-            $collected = Payment::whereHas('rental', function ($q) use ($rental) {
-                $q->whereHas('property', function ($pq) use ($rental) {
-                    $pq->where('title', $rental->property_title);
-                });
-            })
-                ->where('status', 'paid')
-                ->whereMonth('payment_date', now()->month)
-                ->whereYear('payment_date', now()->year)
-                ->sum('amount');
-
-            $rental->amount_collected = $collected;
-
-            return $rental;
-        });
-
-        if ($request->export === 'excel') {
-            return Excel::download(new ForecastExport($data), 'previsions-recouvrement.xlsx');
-        }
-
-        if ($request->export === 'pdf') {
-            $organization = Organization::first();
-            $pdf = Pdf::loadView('reports.pdf.forecast', [
-                'data' => $data,
-                'filters' => $request->all(),
-                'title' => 'Rapport des Prévisions de Recouvrement',
-                'organization' => $organization,
-            ]);
-
-            return $pdf->download('previsions-recouvrement.pdf');
-        }
-
-        return response()->json($data);
-    }
-
     public function exploitation(Request $request)
     {
         try {
@@ -400,5 +333,185 @@ class ReportController extends Controller
 
             return response()->json(['error' => 'Une erreur est survenue lors de la génération du rapport.'], 500);
         }
+    }
+
+    public function rentFollowUp(Request $request)
+    {
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (! $startDate || ! $endDate) {
+            $startDate = now()->subMonths(6)->startOfMonth()->toDateString();
+            $endDate = now()->addMonths(6)->endOfMonth()->toDateString();
+        }
+
+        $start = Carbon::parse($startDate)->startOfMonth();
+        $end = Carbon::parse($endDate)->endOfMonth();
+
+        $months = [];
+        $current = $start->copy();
+        while ($current <= $end) {
+            $months[] = $current->format('Y-m');
+            $current->addMonth();
+        }
+
+        $query = Rental::with([
+            'tenant',
+            'property.parent',
+            'invoices' => fn ($query) => $query->where('type', 'Loyer')->with('items'),
+        ])
+            ->where(function ($q) use ($start) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', $start);
+            })
+            ->where('start_date', '<=', $end);
+
+        if ($request->filled('property_id') && $request->property_id !== 'all') {
+            $query->where(function ($q) use ($request) {
+                $q->where('property_id', $request->property_id)
+                    ->orWhereHas('property', function ($pq) use ($request) {
+                        $pq->where('parent_id', $request->property_id);
+                    });
+            });
+        }
+
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
+            $query->whereHas('property', function ($pq) use ($request) {
+                $pq->where('property_category_id', $request->category_id);
+            });
+        }
+
+        $data = $query->get()
+            ->groupBy('tenant_id')
+            ->map(function ($tenantRentals) use ($months) {
+                $tenant = $tenantRentals->first()->tenant;
+                $properties = $tenantRentals
+                    ->map(function ($rental) {
+                        $propertyTitle = $rental->property?->title ?? 'N/A';
+                        $buildingTitle = $rental->property?->parent?->title;
+
+                        return $buildingTitle ? $buildingTitle.' / '.$propertyTitle : $propertyTitle;
+                    })
+                    ->unique()
+                    ->values()
+                    ->implode(' • ');
+
+                $invoiceItemsByMonth = $tenantRentals
+                    ->flatMap(fn ($rental) => $rental->invoices)
+                    ->flatMap(fn ($invoice) => $invoice->items->map(fn ($item) => [
+                        'item' => $item,
+                        'invoice_date' => $invoice->date,
+                        'invoice_status' => $invoice->status,
+                    ]))
+                    ->flatMap(fn ($invoiceItem) => $this->invoiceItemMonthlyAmounts(
+                        $invoiceItem['item'],
+                        $invoiceItem['invoice_date'],
+                        $invoiceItem['invoice_status'],
+                    ))
+                    ->groupBy('month');
+
+                $rentalMonths = collect($months)->mapWithKeys(function ($month) use ($invoiceItemsByMonth) {
+                    $monthItems = $invoiceItemsByMonth->get($month, collect());
+                    $amount = (float) $monthItems->sum('amount');
+                    $status = $monthItems->isEmpty()
+                        ? 'not_billed'
+                        : ($monthItems->every(fn ($item) => $item['status'] === 'paid') ? 'paid' : 'unpaid');
+
+                    return [$month => [
+                        'amount' => $amount,
+                        'label' => number_format($amount, 0, '.', ' ').' F',
+                        'status' => $status,
+                    ]];
+                })->all();
+
+                return [
+                    'tenant_name' => trim(($tenant?->first_name ?? '').' '.($tenant?->last_name ?? '')) ?: 'N/A',
+                    'property_title' => $properties,
+                    'months' => $rentalMonths,
+                ];
+            })
+            ->sortBy('tenant_name')
+            ->values();
+
+        if ($request->export === 'excel') {
+            return Excel::download(new RentFollowUpExport($data, $months), 'suivi-loyers-'.now()->format('Y-m-d').'.xlsx');
+        }
+
+        if ($request->export === 'pdf') {
+            $organization = Organization::first();
+            $pdf = Pdf::loadView('reports.pdf.rent-follow-up', [
+                'data' => $data,
+                'months' => $months,
+                'filters' => $request->all(),
+                'title' => 'Situation Suivi des Loyers',
+                'organization' => $organization,
+            ])->setPaper('a4', 'landscape');
+
+            return $pdf->download('suivi-loyers-'.now()->format('Y-m-d').'.pdf');
+        }
+
+        return response()->json($data);
+    }
+
+    private function billingPeriodMonth(?string $period, ?DateTimeInterface $fallbackDate = null): ?string
+    {
+        $monthNumbers = [
+            'JAN' => 1,
+            'FEV' => 2,
+            'FERV' => 2,
+            'FEB' => 2,
+            'MAR' => 3,
+            'AVR' => 4,
+            'MAI' => 5,
+            'JUIL' => 7,
+            'JUI' => 6,
+            'AOU' => 8,
+            'SEP' => 9,
+            'OCT' => 10,
+            'NOV' => 11,
+            'DEC' => 12,
+        ];
+
+        $normalizedPeriod = strtr(mb_strtoupper($period ?? ''), [
+            'É' => 'E',
+            'È' => 'E',
+            'Ê' => 'E',
+            'Û' => 'U',
+            'Ô' => 'O',
+        ]);
+
+        preg_match('/JAN|FEV|FERV|FEB|MAR|AVR|MAI|JUIL|JUI|AOU|SEP|OCT|NOV|DEC/', $normalizedPeriod, $monthMatches);
+
+        if ($monthMatches) {
+            preg_match('/20\d{2}/', $normalizedPeriod, $yearMatches);
+            $year = $yearMatches[0] ?? $fallbackDate?->format('Y');
+
+            return $year ? Carbon::create($year, $monthNumbers[$monthMatches[0]], 1)->format('Y-m') : null;
+        }
+
+        return $fallbackDate ? Carbon::instance($fallbackDate)->startOfMonth()->format('Y-m') : null;
+    }
+
+    private function invoiceItemMonthlyAmounts(object $item, ?DateTimeInterface $invoiceDate, string $invoiceStatus): Collection
+    {
+        $billingMonth = $this->billingPeriodMonth($item->period, $invoiceDate);
+
+        if (! $billingMonth) {
+            return collect();
+        }
+
+        $monthsCount = max(1, (int) $item->months_count);
+        $totalInCentimes = (int) round((float) $item->total * 100);
+        $monthlyAmountInCentimes = intdiv($totalInCentimes, $monthsCount);
+        $remainderInCentimes = $totalInCentimes % $monthsCount;
+        $start = Carbon::parse($billingMonth.'-01');
+
+        return collect(range(0, $monthsCount - 1))->map(function (int $offset) use ($start, $monthlyAmountInCentimes, $remainderInCentimes, $invoiceStatus) {
+            return [
+                'month' => $start->copy()->addMonths($offset)->format('Y-m'),
+                'amount' => ($monthlyAmountInCentimes + ($offset < $remainderInCentimes ? 1 : 0)) / 100,
+                'status' => $invoiceStatus,
+            ];
+        });
     }
 }
