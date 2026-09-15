@@ -396,6 +396,8 @@ class ReportController extends Controller
                     ->values()
                     ->implode(' • ');
 
+                $activeRentals = $tenantRentals->where('status', 'active');
+
                 $invoiceItemsByMonth = $tenantRentals
                     ->flatMap(fn ($rental) => $rental->invoices)
                     ->flatMap(fn ($invoice) => $invoice->items->map(fn ($item) => [
@@ -410,12 +412,23 @@ class ReportController extends Controller
                     ))
                     ->groupBy('month');
 
-                $rentalMonths = collect($months)->mapWithKeys(function ($month) use ($invoiceItemsByMonth) {
+                $rentalMonths = collect($months)->mapWithKeys(function ($month) use ($invoiceItemsByMonth, $activeRentals) {
                     $monthItems = $invoiceItemsByMonth->get($month, collect());
-                    $amount = (float) $monthItems->sum('amount');
-                    $status = $monthItems->isEmpty()
-                        ? 'not_billed'
-                        : ($monthItems->every(fn ($item) => $item['status'] === 'paid') ? 'paid' : 'unpaid');
+
+                    if ($monthItems->isNotEmpty()) {
+                        $amount = (float) $monthItems->sum('amount');
+                        $status = $monthItems->every(fn ($item) => $item['status'] === 'paid') ? 'paid' : 'unpaid';
+                    } else {
+                        $monthStart = Carbon::parse($month.'-01')->startOfMonth();
+                        $monthEnd = $monthStart->copy()->endOfMonth();
+
+                        $amount = (float) $activeRentals
+                            ->filter(fn ($rental) => $rental->start_date <= $monthEnd
+                                && (! $rental->end_date || $rental->end_date >= $monthStart))
+                            ->sum('rent_amount');
+
+                        $status = $amount > 0 ? 'unpaid' : 'not_billed';
+                    }
 
                     return [$month => [
                         'amount' => $amount,
@@ -427,11 +440,17 @@ class ReportController extends Controller
                 return [
                     'tenant_name' => trim(($tenant?->first_name ?? '').' '.($tenant?->last_name ?? '')) ?: 'N/A',
                     'property_title' => $properties,
+                    'property_sort_key' => $properties,
+                    'contract_start' => $tenantRentals->min('start_date')?->format('Y-m-d'),
                     'months' => $rentalMonths,
                 ];
             })
-            ->sortBy('tenant_name')
-            ->values();
+            ->sortBy([
+                ['property_sort_key', 'asc'],
+                ['contract_start', 'asc'],
+            ])
+            ->values()
+            ->map(fn ($row) => collect($row)->except(['property_sort_key', 'contract_start'])->all());
 
         if ($request->export === 'excel') {
             return Excel::download(new RentFollowUpExport($data, $months), 'suivi-loyers-'.now()->format('Y-m-d').'.xlsx');

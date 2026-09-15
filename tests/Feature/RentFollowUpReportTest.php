@@ -169,7 +169,8 @@ it('groups rent invoices by tenant and billing month', function () {
     expect($data[0]['months']['2025-11']['amount'])->toBe(150000);
     expect($data[0]['months']['2025-12']['amount'])->toBe(150000);
     expect($data[0]['months']['2026-01']['amount'])->toBe(150000);
-    expect($data[0]['months']['2026-02']['status'])->toBe('not_billed');
+    expect($data[0]['months']['2026-02']['amount'])->toBe(250000);
+    expect($data[0]['months']['2026-02']['status'])->toBe('unpaid');
 
     test()->get('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-03-31&export=pdf')
         ->assertOk()
@@ -178,4 +179,70 @@ it('groups rent invoices by tenant and billing month', function () {
     test()->get('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-03-31&export=excel')
         ->assertOk()
         ->assertDownload();
+});
+
+it('keeps the former tenant visible alongside the new tenant on the same unit', function () {
+    actingAsRentFollowUpUser();
+
+    $category = PropertyCategory::create([
+        'name' => 'Appartements',
+        'slug' => 'appartements',
+    ]);
+
+    $building = Property::create([
+        'property_category_id' => $category->id,
+        'title' => 'Immeuble Central',
+        'type' => 'building',
+        'status' => 'available',
+    ]);
+
+    $apartment = Property::create([
+        'property_category_id' => $category->id,
+        'parent_id' => $building->id,
+        'title' => 'Appt 27',
+        'type' => 'apartment',
+        'status' => 'rented',
+        'price' => 150000,
+    ]);
+
+    $formerTenant = Tenant::create([
+        'first_name' => 'Zara',
+        'last_name' => 'Ancien',
+        'phone' => '111111',
+        'address' => 'Some address',
+    ]);
+
+    $newTenant = Tenant::create([
+        'first_name' => 'Amina',
+        'last_name' => 'Nouveau',
+        'phone' => '222222',
+        'address' => 'Some address',
+    ]);
+
+    Rental::create([
+        'property_id' => $apartment->id,
+        'tenant_id' => $formerTenant->id,
+        'rent_amount' => 150000,
+        'start_date' => Carbon::create(2025, 9, 1),
+        'end_date' => Carbon::create(2025, 12, 31),
+        'status' => 'completed',
+    ]);
+
+    Rental::create([
+        'property_id' => $apartment->id,
+        'tenant_id' => $newTenant->id,
+        'rent_amount' => 160000,
+        'start_date' => Carbon::create(2026, 1, 1),
+        'status' => 'active',
+    ]);
+
+    $response = test()->getJson('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-02-28');
+
+    $response->assertOk();
+    $data = $response->json();
+
+    expect($data)->toHaveCount(2);
+    expect(collect($data)->pluck('tenant_name')->all())->toBe(['Zara Ancien', 'Amina Nouveau']);
+    expect($data[1]['months']['2026-01']['amount'])->toBe(160000);
+    expect($data[1]['months']['2026-01']['status'])->toBe('unpaid');
 });
