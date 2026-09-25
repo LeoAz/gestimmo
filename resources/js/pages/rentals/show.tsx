@@ -8,6 +8,7 @@ import { DataTable } from "@/components/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -90,6 +91,28 @@ interface Props {
 export default function Show({ rental }: Props) {
   const [selectedPendingPayment, setSelectedPendingPayment] = React.useState<Payment | null>(null)
   const [showTerminationDialog, setShowTerminationDialog] = React.useState(false)
+  const [showPrintDialog, setShowPrintDialog] = React.useState(false)
+  const [selectedPaymentIds, setSelectedPaymentIds] = React.useState<number[]>([])
+  const [includePaymentDetails, setIncludePaymentDetails] = React.useState(true)
+
+  const openPrintDialog = () => {
+    setSelectedPaymentIds(rental.payments.map((payment) => payment.id))
+    setShowPrintDialog(true)
+  }
+
+  const togglePaymentSelection = (paymentId: number, checked: boolean) => {
+    setSelectedPaymentIds((current) => checked
+      ? [...current, paymentId]
+      : current.filter((id) => id !== paymentId))
+  }
+
+  const handlePrintStatement = () => {
+    const params = new URLSearchParams({ print: '1', details: includePaymentDetails ? '1' : '0' })
+    selectedPaymentIds.forEach((id) => params.append('payments[]', String(id)))
+
+    window.open(`/rentals/${rental.id}/statement?${params.toString()}`, '_blank')
+    setShowPrintDialog(false)
+  }
 
   const markAsPaidForm = useForm({
     payment_date: new Date(),
@@ -137,6 +160,8 @@ export default function Show({ rental }: Props) {
     return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(amount))
   }
 
+  const amountClassName = (amount: string | number) => Number(amount) === 0 ? "text-orange-600" : ""
+
   const isLate = rental.next_payment_date && new Date(rental.next_payment_date) < new Date()
 
   const paymentColumns = [
@@ -171,7 +196,7 @@ export default function Show({ rental }: Props) {
     {
       header: "Montant",
       accessor: (row: Payment) => (
-        <div className="text-right font-semibold">
+        <div className={cn("text-right font-semibold", amountClassName(row.amount))}>
           {formatCurrency(row.amount)}
         </div>
       ),
@@ -243,7 +268,7 @@ export default function Show({ rental }: Props) {
       {
           header: "Montant",
           accessor: (row: Invoice) => (
-              <div className="text-right font-semibold">
+              <div className={cn("text-right font-semibold", amountClassName(row.total_amount))}>
                   {formatCurrency(row.total_amount)}
               </div>
           ),
@@ -313,6 +338,10 @@ export default function Show({ rental }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-3">
+             <Button variant="outline" onClick={openPrintDialog}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimer
+             </Button>
              <Button variant="outline" asChild>
                 <Link href={`/rentals/${rental.id}/edit`}>Modifier le contrat</Link>
              </Button>
@@ -400,15 +429,15 @@ export default function Show({ rental }: Props) {
             <div className="grid gap-4 sm:grid-cols-4">
                 <div className="rounded-xl border bg-card p-4 space-y-1">
                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Loyer Mensuel</p>
-                   <p className="text-2xl font-bold">{formatCurrency(rental.rent_amount)}</p>
+                   <p className={cn("text-2xl font-bold", amountClassName(rental.rent_amount))}>{formatCurrency(rental.rent_amount)}</p>
                 </div>
                 <div className="rounded-xl border bg-card p-4 space-y-1">
                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Caution versée</p>
-                   <p className="text-2xl font-bold">{formatCurrency(rental.deposit_amount)}</p>
+                   <p className={cn("text-2xl font-bold", amountClassName(rental.deposit_amount))}>{formatCurrency(rental.deposit_amount)}</p>
                 </div>
                 <div className="rounded-xl border bg-primary/5 border-primary/20 p-4 space-y-1">
                    <p className="text-xs font-semibold text-primary uppercase tracking-wider">Solde Avance</p>
-                   <p className="text-2xl font-bold text-primary">{formatCurrency(rental.tenant.balance)}</p>
+                   <p className={cn("text-2xl font-bold", Number(rental.tenant.balance) === 0 ? "text-orange-600" : "text-primary")}>{formatCurrency(rental.tenant.balance)}</p>
                 </div>
                 <div className={cn(
                   "rounded-xl border p-4 space-y-1 transition-colors",
@@ -477,10 +506,8 @@ export default function Show({ rental }: Props) {
                         Profil complet du locataire
                       </Link>
                     </Button>
-                    <Button variant="ghost" className="w-full rounded-full flex items-center gap-2" asChild>
-                      <a href={`/rentals/${rental.id}/statement`} target="_blank">
-                        <Printer className="h-4 w-4" /> Relevé de compte
-                      </a>
+                    <Button variant="ghost" className="w-full rounded-full flex items-center gap-2" onClick={openPrintDialog}>
+                      <Printer className="h-4 w-4" /> Relevé de compte
                     </Button>
                   </div>
                </div>
@@ -601,6 +628,75 @@ export default function Show({ rental }: Props) {
         </DialogContent>
       </Dialog>
 
+
+      <Dialog open={showPrintDialog} onOpenChange={setShowPrintDialog}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Imprimer le relevé
+            </DialogTitle>
+            <DialogDescription>
+              Sélectionnez les paiements à imprimer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {selectedPaymentIds.length} / {rental.payments.length} sélectionné(s)
+              </span>
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedPaymentIds(rental.payments.map((payment) => payment.id))}>
+                  Tout sélectionner
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedPaymentIds([])}>
+                  Tout désélectionner
+                </Button>
+              </div>
+            </div>
+            <div className="max-h-80 divide-y overflow-y-auto rounded-md border">
+              {rental.payments.length === 0 && (
+                <p className="p-4 text-center text-sm text-muted-foreground">Aucun encaissement enregistré.</p>
+              )}
+              {rental.payments.map((payment) => (
+                <label key={payment.id} className="flex cursor-pointer items-center gap-3 p-3 text-sm hover:bg-muted/50">
+                  <Checkbox
+                    checked={selectedPaymentIds.includes(payment.id)}
+                    onCheckedChange={(checked) => togglePaymentSelection(payment.id, checked === true)}
+                  />
+                  <div className="flex-1">
+                    <p className="font-mono text-xs">{payment.invoice_number}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {payment.payment_date ? format(new Date(payment.payment_date), "dd/MM/yyyy") : "-"}
+                      {payment.period_start && payment.period_end && ` · ${format(new Date(payment.period_start), "MMM yyyy", { locale: fr })} - ${format(new Date(payment.period_end), "MMM yyyy", { locale: fr })}`}
+                    </p>
+                  </div>
+                  <Badge variant={payment.status === 'paid' ? 'success' : 'destructive'} className="text-[10px] uppercase font-bold">
+                    {payment.status === 'paid' ? 'Payé' : 'En attente'}
+                  </Badge>
+                  <span className={cn("w-28 text-right font-semibold", amountClassName(payment.amount))}>
+                    {formatCurrency(payment.amount)}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <Checkbox
+                checked={includePaymentDetails}
+                onCheckedChange={(checked) => setIncludePaymentDetails(checked === true)}
+              />
+              Inclure les détails de paiement (lignes de facture, mode de paiement, notes)
+            </label>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setShowPrintDialog(false)}>Annuler</Button>
+            <Button type="button" onClick={handlePrintStatement} disabled={selectedPaymentIds.length === 0}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog for NEW Invoices et Payments supprimés car on utilise maintenant la page dédiée */}
     </>

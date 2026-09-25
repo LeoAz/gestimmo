@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\RentFollowUpExport;
 use App\Models\Invoice;
 use App\Models\Property;
 use App\Models\PropertyCategory;
@@ -8,6 +9,9 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Events\AfterSheet;
+use Maatwebsite\Excel\Sheet;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 uses(RefreshDatabase::class);
 
@@ -245,4 +249,29 @@ it('keeps the former tenant visible alongside the new tenant on the same unit', 
     expect(collect($data)->pluck('tenant_name')->all())->toBe(['Zara Ancien', 'Amina Nouveau']);
     expect($data[1]['months']['2026-01']['amount'])->toBe(160000);
     expect($data[1]['months']['2026-01']['status'])->toBe('unpaid');
+});
+
+it('highlights zero amounts in orange in the excel export', function () {
+    $months = ['2025-09', '2025-10'];
+    $data = [[
+        'property_title' => 'Appt 101',
+        'tenant_name' => 'Alice Wonder',
+        'months' => [
+            '2025-09' => ['amount' => 150000.0, 'label' => '150 000 F', 'status' => 'paid'],
+            '2025-10' => ['amount' => 0.0, 'label' => '0 F', 'status' => 'not_billed'],
+        ],
+    ]];
+
+    $spreadsheet = new Spreadsheet;
+    $sheet = new Sheet($spreadsheet->getActiveSheet());
+    $export = new RentFollowUpExport($data, $months);
+
+    $export->registerEvents()[AfterSheet::class](
+        new AfterSheet($sheet, $export)
+    );
+
+    $worksheet = $spreadsheet->getActiveSheet();
+
+    expect($worksheet->getStyle('C2')->getFill()->getStartColor()->getRGB())->toBe('D1FAE5')
+        ->and($worksheet->getStyle('D2')->getFill()->getStartColor()->getRGB())->toBe('FFEDD5');
 });

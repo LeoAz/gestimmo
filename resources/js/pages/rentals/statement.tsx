@@ -19,6 +19,18 @@ interface Payment {
   invoice_number: string
   notes: string | null
   is_advance_payment: boolean
+  invoice?: {
+    invoice_number: string
+    items: {
+      id: number
+      designation: string
+      period: string | null
+      months_count: number | null
+      unit_price: string
+      quantity: string
+      total: string
+    }[]
+  } | null
 }
 
 interface Rental {
@@ -51,9 +63,18 @@ interface Props {
     country?: string | null
     logo_url?: string | null
   } | null
+  showDetails: boolean
+  autoPrint: boolean
 }
 
-export default function Statement({ rental, organization }: Props) {
+const paymentMethodLabels: Record<string, string> = {
+  cash: 'Espèces',
+  bank_transfer: 'Virement Bancaire',
+  mobile_money: 'Mobile Money',
+  balance: 'Solde/Avance',
+}
+
+export default function Statement({ rental, organization, showDetails, autoPrint }: Props) {
   const formatCurrency = (amount: string | number) => {
     return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF" }).format(Number(amount))
   }
@@ -61,6 +82,14 @@ export default function Statement({ rental, organization }: Props) {
   const handlePrint = () => {
     window.print()
   }
+
+  React.useEffect(() => {
+    if (autoPrint) {
+      window.print()
+    }
+  }, [autoPrint])
+
+  const amountClassName = (amount: string | number) => Number(amount) === 0 ? 'text-orange-600' : ''
 
   // Calcul du total facturé et total payé
   const totalInvoiced = rental.payments
@@ -174,15 +203,46 @@ export default function Statement({ rental, organization }: Props) {
                           Période: {format(new Date(payment.period_start), "dd/MM/yy")} au {format(new Date(payment.period_end!), "dd/MM/yy")}
                         </div>
                       )}
+                      {showDetails && (
+                        <div className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                          {payment.status === 'paid' && payment.payment_method && (
+                            <p>Mode de paiement : {paymentMethodLabels[payment.payment_method] ?? payment.payment_method}</p>
+                          )}
+                          {payment.invoice?.items && payment.invoice.items.length > 0 && (
+                            <table className="w-full border-collapse">
+                              <tbody>
+                                {payment.invoice.items.map((item) => (
+                                  <tr key={item.id} className="border-t border-gray-100">
+                                    <td className="py-0.5 pr-2">{item.designation}{item.period ? ` (${item.period})` : ''}</td>
+                                    <td className="py-0.5 pr-2 whitespace-nowrap">
+                                      {item.months_count ? `${item.months_count} mois × ` : `${Number(item.quantity)} × `}
+                                      {formatCurrency(item.unit_price)}
+                                    </td>
+                                    <td className={`py-0.5 text-right whitespace-nowrap font-medium ${amountClassName(item.total)}`}>
+                                      {formatCurrency(item.total)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                          {payment.notes && <p className="italic">Note : {payment.notes}</p>}
+                        </div>
+                      )}
                     </td>
-                    <td className="py-4 px-2 text-right">
+                    <td className={`py-4 px-2 text-right ${payment.type !== 'advance' ? amountClassName(payment.amount) : ''}`}>
                       {payment.type !== 'advance' ? formatCurrency(payment.amount) : '-'}
                     </td>
-                    <td className="py-4 px-2 text-right font-semibold text-green-600">
+                    <td className={`py-4 px-2 text-right font-semibold ${Number(payment.amount) === 0 ? 'text-orange-600' : 'text-green-600'}`}>
                       {payment.status === 'paid' ? formatCurrency(payment.amount) : '-'}
                     </td>
                   </tr>
                 ))}
+                {rental.payments.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Aucun paiement sélectionné.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -192,11 +252,11 @@ export default function Statement({ rental, organization }: Props) {
             <div className="w-full sm:w-80 space-y-3 bg-gray-50 p-6 rounded-lg print:bg-white print:border">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total Facturé:</span>
-                <span className="font-semibold">{formatCurrency(totalInvoiced)}</span>
+                <span className={`font-semibold ${amountClassName(totalInvoiced)}`}>{formatCurrency(totalInvoiced)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total Réglé:</span>
-                <span className="font-semibold text-green-600">{formatCurrency(totalPaid)}</span>
+                <span className={`font-semibold ${totalPaid === 0 ? 'text-orange-600' : 'text-green-600'}`}>{formatCurrency(totalPaid)}</span>
               </div>
               <Separator />
               <div className="flex justify-between items-center pt-2">

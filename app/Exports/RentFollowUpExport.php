@@ -77,11 +77,14 @@ class RentFollowUpExport implements FromCollection, ShouldAutoSize, WithEvents, 
                 $colors = [
                     'paid' => 'D1FAE5',
                     'unpaid' => 'FEE2E2',
+                    'zero' => 'FFEDD5',
                 ];
 
                 foreach (collect($this->data)->values() as $rowIndex => $row) {
                     foreach ($this->months as $monthIndex => $month) {
-                        $status = $row['months'][$month]['status'];
+                        $status = (float) $row['months'][$month]['amount'] === 0.0
+                            ? 'zero'
+                            : $row['months'][$month]['status'];
 
                         if (! isset($colors[$status])) {
                             continue;

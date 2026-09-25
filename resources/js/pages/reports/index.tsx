@@ -291,9 +291,9 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                 return (
                     <div className={cn(
                         "min-w-[100px] rounded p-1 text-center text-xs font-medium",
-                        data.status === 'paid' && "border border-emerald-200 bg-emerald-100 text-emerald-800",
-                        data.status === 'unpaid' && "border border-rose-200 bg-rose-100 text-rose-800",
-                        data.status === 'not_billed' && "bg-muted text-muted-foreground",
+                        Number(data.amount) === 0 && "border border-orange-200 bg-orange-100 text-orange-800",
+                        Number(data.amount) !== 0 && data.status === 'paid' && "border border-emerald-200 bg-emerald-100 text-emerald-800",
+                        Number(data.amount) !== 0 && data.status === 'unpaid' && "border border-rose-200 bg-rose-100 text-rose-800",
                     )}>
                         {data.label}
                     </div>
@@ -329,7 +329,7 @@ export default function ReportsIndex({ properties, categories, filters }: Props)
                             const monthlyTotal = reportData.reduce((acc, curr) => acc + Number(curr.months?.[month]?.amount || 0), 0)
 
                             return (
-                                <TableCell key={month} className="text-center text-xs">
+                                <TableCell key={month} className={cn("text-center text-xs", monthlyTotal === 0 && "text-orange-600")}>
                                     {formatCurrency(monthlyTotal).replace(',00', '')}
                                 </TableCell>
                             )

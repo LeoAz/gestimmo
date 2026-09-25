@@ -18,6 +18,10 @@
         background-color: #fee2e2;
         color: #991b1b;
     }
+    .status-zero {
+        background-color: #ffedd5;
+        color: #c2410c;
+    }
 </style>
 
 <table>
@@ -41,7 +45,7 @@
                     @php
                         $monthData = $row['months'][$month];
                     @endphp
-                    <td class="month-cell status-{{ str_replace('_', '-', $monthData['status']) }}">
+                    <td class="month-cell status-{{ (float) $monthData['amount'] === 0.0 ? 'zero' : str_replace('_', '-', $monthData['status']) }}">
                         {{ $monthData['label'] }}
                     </td>
                 @endforeach
@@ -58,7 +62,7 @@
                         $total += $row['months'][$month]['amount'];
                     }
                 @endphp
-                <td class="month-cell">{{ number_format($total, 0, '.', ' ') }} F</td>
+                <td class="month-cell {{ (float) $total === 0.0 ? 'status-zero' : '' }}">{{ number_format($total, 0, '.', ' ') }} F</td>
             @endforeach
         </tr>
     </tfoot>

@@ -240,10 +240,22 @@ class PaymentController extends Controller
         return back()->with('success', 'Avance enregistrée avec succès.');
     }
 
-    public function statement(Rental $rental)
+    public function statement(Request $request, Rental $rental)
     {
-        $rental->load(['tenant', 'property', 'payments' => function ($query) {
-            $query->orderBy('payment_date', 'asc')->orderBy('created_at', 'asc');
+        $validated = $request->validate([
+            'payments' => ['nullable', 'array'],
+            'payments.*' => ['integer'],
+            'details' => ['nullable', 'boolean'],
+            'print' => ['nullable', 'boolean'],
+        ]);
+
+        $selectedPaymentIds = $validated['payments'] ?? [];
+
+        $rental->load(['tenant', 'property', 'payments' => function ($query) use ($selectedPaymentIds) {
+            $query->with('invoice.items')
+                ->when($selectedPaymentIds !== [], fn ($query) => $query->whereIn('id', $selectedPaymentIds))
+                ->orderBy('payment_date', 'asc')
+                ->orderBy('created_at', 'asc');
         }]);
 
         $organization = Organization::first();
@@ -251,6 +263,8 @@ class PaymentController extends Controller
         return Inertia::render('rentals/statement', [
             'rental' => $rental,
             'organization' => $organization,
+            'showDetails' => (bool) ($validated['details'] ?? false),
+            'autoPrint' => (bool) ($validated['print'] ?? false),
         ]);
     }
 
