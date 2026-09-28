@@ -364,7 +364,8 @@ class ReportController extends Controller
                 $q->whereNull('end_date')
                     ->orWhere('end_date', '>=', $start);
             })
-            ->where('start_date', '<=', $end);
+            ->where('start_date', '<=', $end)
+            ->when(in_array($request->export, ['pdf', 'excel'], true), fn ($q) => $q->where('status', 'active'));
 
         if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->where(function ($q) use ($request) {

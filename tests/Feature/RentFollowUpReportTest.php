@@ -9,7 +9,9 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\View;
 use Maatwebsite\Excel\Events\AfterSheet;
+use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Sheet;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
@@ -274,4 +276,61 @@ it('highlights zero amounts in orange in the excel export', function () {
 
     expect($worksheet->getStyle('C2')->getFill()->getStartColor()->getRGB())->toBe('D1FAE5')
         ->and($worksheet->getStyle('D2')->getFill()->getStartColor()->getRGB())->toBe('FFEDD5');
+});
+
+it('only exports the active rental in the pdf and excel exports', function () {
+    actingAsRentFollowUpUser();
+
+    $category = PropertyCategory::create([
+        'name' => 'Appartements',
+        'slug' => 'appartements',
+    ]);
+
+    $apartment = Property::create([
+        'property_category_id' => $category->id,
+        'title' => 'Appt 27',
+        'type' => 'apartment',
+        'status' => 'rented',
+        'price' => 150000,
+    ]);
+
+    foreach ([['Zara', 'completed'], ['Yann', 'cancelled'], ['Amina', 'active']] as [$firstName, $status]) {
+        $tenant = Tenant::create([
+            'first_name' => $firstName,
+            'last_name' => 'Locataire',
+            'phone' => '111111',
+            'address' => 'Some address',
+        ]);
+
+        Rental::create([
+            'property_id' => $apartment->id,
+            'tenant_id' => $tenant->id,
+            'rent_amount' => 150000,
+            'start_date' => Carbon::create(2025, 9, 1),
+            'status' => $status,
+        ]);
+    }
+
+    $printedData = null;
+    View::composer('reports.pdf.rent-follow-up', function ($view) use (&$printedData) {
+        $printedData = $view->getData()['data'];
+    });
+
+    test()->get('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-02-28&export=pdf')
+        ->assertOk();
+
+    expect(collect($printedData)->pluck('tenant_name')->all())->toBe(['Amina Locataire']);
+
+    Excel::fake();
+
+    test()->get('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-02-28&export=excel')
+        ->assertOk();
+
+    Excel::assertDownloaded('suivi-loyers-'.now()->format('Y-m-d').'.xlsx', function (RentFollowUpExport $export) {
+        return $export->collection()->pluck('tenant_name')->all() === ['Amina Locataire'];
+    });
+
+    test()->getJson('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-02-28')
+        ->assertOk()
+        ->assertJsonCount(3);
 });
