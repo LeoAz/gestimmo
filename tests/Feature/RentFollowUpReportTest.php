@@ -187,7 +187,7 @@ it('groups rent invoices by tenant and billing month', function () {
         ->assertDownload();
 });
 
-it('keeps the former tenant visible alongside the new tenant on the same unit', function () {
+it('hides the former tenant of a completed contract and keeps the new tenant on the same unit', function () {
     actingAsRentFollowUpUser();
 
     $category = PropertyCategory::create([
@@ -247,10 +247,10 @@ it('keeps the former tenant visible alongside the new tenant on the same unit', 
     $response->assertOk();
     $data = $response->json();
 
-    expect($data)->toHaveCount(2);
-    expect(collect($data)->pluck('tenant_name')->all())->toBe(['Zara Ancien', 'Amina Nouveau']);
-    expect($data[1]['months']['2026-01']['amount'])->toBe(160000);
-    expect($data[1]['months']['2026-01']['status'])->toBe('unpaid');
+    expect($data)->toHaveCount(1);
+    expect(collect($data)->pluck('tenant_name')->all())->toBe(['Amina Nouveau']);
+    expect($data[0]['months']['2026-01']['amount'])->toBe(160000);
+    expect($data[0]['months']['2026-01']['status'])->toBe('unpaid');
 });
 
 it('highlights zero amounts in orange in the excel export', function () {
@@ -278,7 +278,7 @@ it('highlights zero amounts in orange in the excel export', function () {
         ->and($worksheet->getStyle('D2')->getFill()->getStartColor()->getRGB())->toBe('FFEDD5');
 });
 
-it('only exports the active rental in the pdf and excel exports', function () {
+it('only shows the active rental in the report and its pdf and excel exports', function () {
     actingAsRentFollowUpUser();
 
     $category = PropertyCategory::create([
@@ -332,5 +332,6 @@ it('only exports the active rental in the pdf and excel exports', function () {
 
     test()->getJson('/reports/rent-follow-up?start_date=2025-09-01&end_date=2026-02-28')
         ->assertOk()
-        ->assertJsonCount(3);
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.tenant_name', 'Amina Locataire');
 });
