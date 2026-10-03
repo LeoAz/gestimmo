@@ -335,3 +335,62 @@ it('only shows the active rental in the report and its pdf and excel exports', f
         ->assertJsonCount(1)
         ->assertJsonPath('0.tenant_name', 'Amina Locataire');
 });
+
+it('keeps an active rental with rent invoices in the filtered period even when its contract dates are outside it', function () {
+    actingAsRentFollowUpUser();
+
+    $category = PropertyCategory::create([
+        'name' => 'Appartements',
+        'slug' => 'appartements',
+    ]);
+
+    $apartment = Property::create([
+        'property_category_id' => $category->id,
+        'title' => 'Appt 12',
+        'type' => 'apartment',
+        'status' => 'rented',
+        'price' => 150000,
+    ]);
+
+    $tenant = Tenant::create([
+        'first_name' => 'Kofi',
+        'last_name' => 'Mensah',
+        'phone' => '333333',
+        'address' => 'Some address',
+    ]);
+
+    $rental = Rental::create([
+        'property_id' => $apartment->id,
+        'tenant_id' => $tenant->id,
+        'rent_amount' => 150000,
+        'start_date' => Carbon::create(2026, 1, 1),
+        'status' => 'active',
+    ]);
+
+    $invoice = Invoice::create([
+        'rental_id' => $rental->id,
+        'invoice_number' => 'INV-NOV-1',
+        'date' => Carbon::create(2025, 11, 5),
+        'type' => 'Loyer',
+        'amount_ht' => 150000,
+        'total_amount' => 150000,
+        'status' => 'paid',
+    ]);
+    $invoice->items()->create([
+        'designation' => 'Loyer novembre',
+        'period' => 'novembre 2025',
+        'months_count' => 1,
+        'total' => 150000,
+    ]);
+
+    test()->getJson('/reports/rent-follow-up?start_date=2025-10-01&end_date=2025-12-31')
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.tenant_name', 'Kofi Mensah')
+        ->assertJsonPath('0.months.2025-11.amount', 150000)
+        ->assertJsonPath('0.months.2025-11.status', 'paid');
+
+    test()->getJson('/reports/rent-follow-up?start_date=2025-06-01&end_date=2025-08-31')
+        ->assertOk()
+        ->assertJsonCount(0);
+});

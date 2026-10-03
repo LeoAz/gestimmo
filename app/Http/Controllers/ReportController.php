@@ -360,11 +360,6 @@ class ReportController extends Controller
             'property.parent',
             'invoices' => fn ($query) => $query->where('type', 'Loyer')->with('items'),
         ])
-            ->where(function ($q) use ($start) {
-                $q->whereNull('end_date')
-                    ->orWhere('end_date', '>=', $start);
-            })
-            ->where('start_date', '<=', $end)
             ->where('status', 'active');
 
         if ($request->filled('property_id') && $request->property_id !== 'all') {
@@ -384,7 +379,7 @@ class ReportController extends Controller
 
         $data = $query->get()
             ->groupBy('tenant_id')
-            ->map(function ($tenantRentals) use ($months) {
+            ->map(function ($tenantRentals) use ($months, $start, $end) {
                 $tenant = $tenantRentals->first()->tenant;
                 $properties = $tenantRentals
                     ->map(function ($rental) {
@@ -412,6 +407,13 @@ class ReportController extends Controller
                         $invoiceItem['invoice_status'],
                     ))
                     ->groupBy('month');
+
+                $hasContractInPeriod = $tenantRentals->contains(fn ($rental) => $rental->start_date <= $end
+                    && (! $rental->end_date || $rental->end_date >= $start));
+
+                if (! $hasContractInPeriod && $invoiceItemsByMonth->keys()->intersect($months)->isEmpty()) {
+                    return null;
+                }
 
                 $rentalMonths = collect($months)->mapWithKeys(function ($month) use ($invoiceItemsByMonth, $activeRentals) {
                     $monthItems = $invoiceItemsByMonth->get($month, collect());
@@ -446,6 +448,7 @@ class ReportController extends Controller
                     'months' => $rentalMonths,
                 ];
             })
+            ->filter()
             ->sortBy([
                 ['property_sort_key', 'asc'],
                 ['contract_start', 'asc'],
