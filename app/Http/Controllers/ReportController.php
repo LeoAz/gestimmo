@@ -360,7 +360,10 @@ class ReportController extends Controller
             'property.parent',
             'invoices' => fn ($query) => $query->where('type', 'Loyer')->with('items'),
         ])
-            ->where('status', 'active');
+            ->where(function ($q) {
+                $q->where('status', 'active')
+                    ->orWhereHas('invoices', fn ($invoiceQuery) => $invoiceQuery->where('type', 'Loyer'));
+            });
 
         if ($request->filled('property_id') && $request->property_id !== 'all') {
             $query->where(function ($q) use ($request) {
@@ -378,6 +381,8 @@ class ReportController extends Controller
         }
 
         $data = $query->get()
+            ->filter(fn ($rental) => $rental->status === 'active'
+                || $this->rentalInvoiceMonthlyAmounts($rental)->pluck('month')->intersect($months)->isNotEmpty())
             ->groupBy('tenant_id')
             ->map(function ($tenantRentals) use ($months, $start, $end) {
                 $tenant = $tenantRentals->first()->tenant;
@@ -395,20 +400,10 @@ class ReportController extends Controller
                 $activeRentals = $tenantRentals->where('status', 'active');
 
                 $invoiceItemsByMonth = $tenantRentals
-                    ->flatMap(fn ($rental) => $rental->invoices)
-                    ->flatMap(fn ($invoice) => $invoice->items->map(fn ($item) => [
-                        'item' => $item,
-                        'invoice_date' => $invoice->date,
-                        'invoice_status' => $invoice->status,
-                    ]))
-                    ->flatMap(fn ($invoiceItem) => $this->invoiceItemMonthlyAmounts(
-                        $invoiceItem['item'],
-                        $invoiceItem['invoice_date'],
-                        $invoiceItem['invoice_status'],
-                    ))
+                    ->flatMap(fn ($rental) => $this->rentalInvoiceMonthlyAmounts($rental))
                     ->groupBy('month');
 
-                $hasContractInPeriod = $tenantRentals->contains(fn ($rental) => $rental->start_date <= $end
+                $hasContractInPeriod = $activeRentals->contains(fn ($rental) => $rental->start_date <= $end
                     && (! $rental->end_date || $rental->end_date >= $start));
 
                 if (! $hasContractInPeriod && $invoiceItemsByMonth->keys()->intersect($months)->isEmpty()) {
@@ -513,6 +508,19 @@ class ReportController extends Controller
         }
 
         return $fallbackDate ? Carbon::instance($fallbackDate)->startOfMonth()->format('Y-m') : null;
+    }
+
+    /**
+     * @return Collection<int, array{month: string, amount: float, status: string}>
+     */
+    private function rentalInvoiceMonthlyAmounts(Rental $rental): Collection
+    {
+        return $rental->invoices
+            ->flatMap(fn ($invoice) => $invoice->items->flatMap(fn ($item) => $this->invoiceItemMonthlyAmounts(
+                $item,
+                $invoice->date,
+                $invoice->status,
+            )));
     }
 
     private function invoiceItemMonthlyAmounts(object $item, ?DateTimeInterface $invoiceDate, string $invoiceStatus): Collection

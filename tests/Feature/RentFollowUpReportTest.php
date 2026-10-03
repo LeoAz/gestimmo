@@ -394,3 +394,64 @@ it('keeps an active rental with rent invoices in the filtered period even when i
         ->assertOk()
         ->assertJsonCount(0);
 });
+
+it('shows a former tenant of a completed contract when rent invoices fall in the filtered period', function () {
+    actingAsRentFollowUpUser();
+
+    $category = PropertyCategory::create([
+        'name' => 'Appartements',
+        'slug' => 'appartements',
+    ]);
+
+    $apartment = Property::create([
+        'property_category_id' => $category->id,
+        'title' => 'Appt 16',
+        'type' => 'apartment',
+        'status' => 'available',
+        'price' => 150000,
+    ]);
+
+    $tenant = Tenant::create([
+        'first_name' => 'Hicham',
+        'last_name' => 'Ancien',
+        'phone' => '444444',
+        'address' => 'Some address',
+    ]);
+
+    $rental = Rental::create([
+        'property_id' => $apartment->id,
+        'tenant_id' => $tenant->id,
+        'rent_amount' => 150000,
+        'start_date' => Carbon::create(2025, 10, 1),
+        'end_date' => Carbon::create(2026, 9, 30),
+        'status' => 'completed',
+    ]);
+
+    $invoice = Invoice::create([
+        'rental_id' => $rental->id,
+        'invoice_number' => 'INV-OCT-ANCIEN',
+        'date' => Carbon::create(2025, 10, 2),
+        'type' => 'Loyer',
+        'amount_ht' => 300000,
+        'total_amount' => 300000,
+        'status' => 'paid',
+    ]);
+    $invoice->items()->create([
+        'designation' => 'Loyer octobre-novembre',
+        'period' => 'octobre 2025',
+        'months_count' => 2,
+        'total' => 300000,
+    ]);
+
+    test()->getJson('/reports/rent-follow-up?start_date=2025-10-01&end_date=2025-12-31')
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.tenant_name', 'Hicham Ancien')
+        ->assertJsonPath('0.months.2025-10.status', 'paid')
+        ->assertJsonPath('0.months.2025-11.amount', 150000)
+        ->assertJsonPath('0.months.2025-12.status', 'not_billed');
+
+    test()->getJson('/reports/rent-follow-up?start_date=2026-01-01&end_date=2026-03-31')
+        ->assertOk()
+        ->assertJsonCount(0);
+});
